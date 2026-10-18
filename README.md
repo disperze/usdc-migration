@@ -77,7 +77,7 @@ Only the ibc-go-specific files differ between the two lines: the middleware, the
    - Local bank sends and DEX trades still work.
 2. **Check the cap.** Run `query usdcmigration return-cap <channel>`.
    - `cap` should equal Noble's escrow balance for the counterparty channel: `GET <noble-rest>/cosmos/bank/v1beta1/balances/<escrow>`.
-3. **Proposal**, one proposal executed atomically:
+3. **Proposal**, one proposal executed atomically. Per-chain scaffolds and minimum deposits are in [docs/proposals](docs/proposals/README.md).
 
    ```json
    {
