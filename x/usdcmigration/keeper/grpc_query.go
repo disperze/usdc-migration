@@ -33,15 +33,14 @@ func (q queryServer) ReturnCap(ctx context.Context, req *types.QueryReturnCapReq
 	if !q.GetParams(ctx).IsNobleChannel(req.ChannelId) {
 		return nil, status.Errorf(codes.NotFound, "%s is not a configured Noble channel", req.ChannelId)
 	}
-	denom, supply, authorityBalance, returned, returnCap, err := q.Keeper.ReturnCap(ctx, req.ChannelId)
+	denom, supply, returned, returnCap, err := q.Keeper.ReturnCap(ctx, req.ChannelId)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return &types.QueryReturnCapResponse{
-		Denom:            denom,
-		Supply:           supply,
-		AuthorityBalance: authorityBalance,
-		ReturnedTotal:    returned,
-		Cap:              returnCap,
+		Denom:         denom,
+		Supply:        supply,
+		ReturnedTotal: returned,
+		Cap:           returnCap,
 	}, nil
 }

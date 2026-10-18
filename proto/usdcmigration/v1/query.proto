@@ -44,20 +44,14 @@ message QueryReturnCapResponse {
     (gogoproto.customtype) = "cosmossdk.io/math.Int",
     (gogoproto.nullable) = false
   ];
-  // authority_balance is the voucher held by the authority (gov) account.
-  string authority_balance = 3 [
-    (cosmos_proto.scalar) = "cosmos.Int",
-    (gogoproto.customtype) = "cosmossdk.io/math.Int",
-    (gogoproto.nullable) = false
-  ];
   // returned_total is the amount already returned (and not refunded).
-  string returned_total = 4 [
+  string returned_total = 3 [
     (cosmos_proto.scalar) = "cosmos.Int",
     (gogoproto.customtype) = "cosmossdk.io/math.Int",
     (gogoproto.nullable) = false
   ];
-  // cap = supply - authority_balance - returned_total.
-  string cap = 5 [
+  // cap = supply - returned_total.
+  string cap = 4 [
     (cosmos_proto.scalar) = "cosmos.Int",
     (gogoproto.customtype) = "cosmossdk.io/math.Int",
     (gogoproto.nullable) = false

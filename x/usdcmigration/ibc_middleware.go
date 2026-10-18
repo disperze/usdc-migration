@@ -78,34 +78,37 @@ func (im IBCMiddleware) OnRecvPacket(ctx sdk.Context, channelVersion string, pac
 }
 
 // OnAcknowledgementPacket releases the returned total when a return to Noble
-// is answered with an error acknowledgement.
+// is answered with an error acknowledgement. The error ack of a return packet
+// never reaches the transfer app: the return burned nothing, and the app's
+// refund would mint the voucher to the authority.
 func (im IBCMiddleware) OnAcknowledgementPacket(ctx sdk.Context, channelVersion string, packet channeltypes.Packet, acknowledgement []byte, relayer sdk.AccAddress) error {
-	if err := im.app.OnAcknowledgementPacket(ctx, channelVersion, packet, acknowledgement, relayer); err != nil {
-		return err
+	if data, ok := im.returnPacketData(ctx, packet); ok {
+		var ack channeltypes.Acknowledgement
+		if err := transfertypes.ModuleCdc.UnmarshalJSON(acknowledgement, &ack); err == nil && !ack.Success() {
+			return im.keeper.OnReturnRefunded(ctx, packet.SourceChannel, data.Denom, data.Sender, data.Amount, "error_ack")
+		}
 	}
-
-	var ack channeltypes.Acknowledgement
-	if err := transfertypes.ModuleCdc.UnmarshalJSON(acknowledgement, &ack); err != nil || ack.Success() {
-		return nil
-	}
-	var data transfertypes.FungibleTokenPacketData
-	if err := json.Unmarshal(packet.GetData(), &data); err != nil {
-		return nil
-	}
-	return im.keeper.OnReturnRefunded(ctx, packet.SourceChannel, data.Denom, data.Sender, data.Amount, "error_ack")
+	return im.app.OnAcknowledgementPacket(ctx, channelVersion, packet, acknowledgement, relayer)
 }
 
-// OnTimeoutPacket releases the returned total when a return to Noble times out.
+// OnTimeoutPacket releases the returned total when a return to Noble times
+// out. Like an error ack, the timeout of a return packet never reaches the
+// transfer app, so no voucher is minted back.
 func (im IBCMiddleware) OnTimeoutPacket(ctx sdk.Context, channelVersion string, packet channeltypes.Packet, relayer sdk.AccAddress) error {
-	if err := im.app.OnTimeoutPacket(ctx, channelVersion, packet, relayer); err != nil {
-		return err
+	if data, ok := im.returnPacketData(ctx, packet); ok {
+		return im.keeper.OnReturnRefunded(ctx, packet.SourceChannel, data.Denom, data.Sender, data.Amount, "timeout")
 	}
+	return im.app.OnTimeoutPacket(ctx, channelVersion, packet, relayer)
+}
 
+// returnPacketData decodes the ICS20 data of packet and reports whether it is
+// a return packet sent by MsgReturnToNoble.
+func (im IBCMiddleware) returnPacketData(ctx sdk.Context, packet channeltypes.Packet) (transfertypes.FungibleTokenPacketData, bool) {
 	var data transfertypes.FungibleTokenPacketData
 	if err := json.Unmarshal(packet.GetData(), &data); err != nil {
-		return nil
+		return data, false
 	}
-	return im.keeper.OnReturnRefunded(ctx, packet.SourceChannel, data.Denom, data.Sender, data.Amount, "timeout")
+	return data, im.keeper.IsReturnPacket(ctx, packet.SourceChannel, data.Denom, data.Sender)
 }
 
 // SendPacket implements porttypes.ICS4Wrapper.

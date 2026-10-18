@@ -129,7 +129,6 @@ var (
 		stakingtypes.BondedPoolName:    {authtypes.Burner, authtypes.Staking},
 		stakingtypes.NotBondedPoolName: {authtypes.Burner, authtypes.Staking},
 		govtypes.ModuleName:            {authtypes.Burner},
-		usdcmigrationtypes.ModuleName:  {authtypes.Minter},
 		ibctransfertypes.ModuleName:    {authtypes.Minter, authtypes.Burner},
 		icatypes.ModuleName:            nil,
 		ibcmock.ModuleName:             nil,
@@ -421,7 +420,6 @@ func NewSimApp(
 	// channel.RecvPacket -> transfer.OnRecvPacket
 
 	// create IBC module from bottom to top of stack
-	app.UsdcMigrationKeeper.SetTransferKeeper(app.TransferKeeper)
 	var transferStack porttypes.IBCModule = transfer.NewIBCModule(app.TransferKeeper)
 	// usdcmigration must be the outermost middleware of the transfer stack
 	transferStack = usdcmigration.NewIBCMiddleware(app.UsdcMigrationKeeper, transferStack)

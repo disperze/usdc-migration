@@ -31,12 +31,12 @@ func NewIBCMiddleware(k *keeper.Keeper, app api.IBCModule) IBCMiddleware {
 	return IBCMiddleware{app: app, keeper: k}
 }
 
-// OnSendPacket rejects the Noble voucher unless it is sent by the authority.
+// OnSendPacket rejects the Noble voucher, whoever the sender is.
 func (im IBCMiddleware) OnSendPacket(ctx sdk.Context, sourceClient, destinationClient string, sequence uint64, payload channeltypesv2.Payload, signer sdk.AccAddress) error {
 	if payload.SourcePort == types.TransferPortID {
 		data, err := transfertypes.UnmarshalPacketData(payload.Value, payload.Version, payload.Encoding)
 		if err == nil {
-			if err := im.keeper.CheckSendDenom(ctx, data.Token.Denom.Path(), data.Sender); err != nil {
+			if err := im.keeper.CheckSendDenom(ctx, data.Token.Denom.Path()); err != nil {
 				return err
 			}
 		}

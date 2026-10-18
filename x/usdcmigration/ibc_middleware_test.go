@@ -239,17 +239,35 @@ func (s *MiddlewareTestSuite) TestUserCannotSendVoucherOverIBCV2() {
 	s.Require().NoError(err)
 }
 
-// --- mint-and-return ---
+func (s *MiddlewareTestSuite) TestGovCannotTransferVoucher() {
+	ctx, _ := s.chainA.GetContext().CacheContext()
+	coin := sdk.NewCoin(s.voucher, sdkmath.NewInt(10))
+	s.Require().NoError(s.app(s.chainA).BankKeeper.SendCoins(ctx, s.chainA.SenderAccount.GetAddress(), s.gov, sdk.NewCoins(coin)))
+
+	msg := s.transferMsg(s.chainA, s.pathAB.EndpointA.ChannelID, coin, s.multisig)
+	msg.Sender = s.gov.String()
+	_, err := s.app(s.chainA).TransferKeeper.Transfer(ctx, msg)
+	s.Require().ErrorIs(err, types.ErrSendBlocked)
+}
+
+// --- return packet ---
+
+// requireVoucherUntouched checks that no voucher was minted, burned or moved on chain A.
+func (s *MiddlewareTestSuite) requireVoucherUntouched() {
+	ctx := s.chainA.GetContext()
+	s.Require().Equal(s.seeded, s.balance(s.chainA, s.chainA.SenderAccount.GetAddress(), s.voucher))
+	s.Require().Equal(s.seeded, s.app(s.chainA).BankKeeper.GetSupply(ctx, s.voucher).Amount)
+	s.Require().True(s.balance(s.chainA, s.gov, s.voucher).IsZero())
+}
 
 func (s *MiddlewareTestSuite) TestReturnToNobleDrainsEscrow() {
 	s.Require().Equal(s.seeded, s.nobleEscrow())
-	user := s.chainA.SenderAccount.GetAddress()
 
 	res, packet, err := s.returnToNoble(sdkmath.ZeroInt(), s.multisig, 0)
 	s.Require().NoError(err)
 	s.Require().Equal(s.seeded, res.Amount)
-	s.Require().Equal(s.seeded, res.Minted)
 	s.Require().Equal(s.voucher, res.Denom)
+	s.requireVoucherUntouched()
 
 	ack := s.relay(s.pathAB, packet)
 	var a channeltypes.Acknowledgement
@@ -260,12 +278,9 @@ func (s *MiddlewareTestSuite) TestReturnToNobleDrainsEscrow() {
 	s.Require().True(s.nobleEscrow().IsZero())
 	s.Require().Equal(s.seeded, s.balance(s.chainB, s.multisig, usdc))
 
-	// chain A: user balance untouched, minted voucher burned, cap exhausted
-	ctx := s.chainA.GetContext()
-	s.Require().Equal(s.seeded, s.balance(s.chainA, user, s.voucher))
-	s.Require().Equal(s.seeded, s.app(s.chainA).BankKeeper.GetSupply(ctx, s.voucher).Amount)
-	s.Require().True(s.balance(s.chainA, s.gov, s.voucher).IsZero())
-	s.Require().Equal(s.seeded, s.keeper().GetReturnedTotal(ctx, s.pathAB.EndpointA.ChannelID))
+	// chain A: no voucher minted, burned or moved, cap exhausted
+	s.requireVoucherUntouched()
+	s.Require().Equal(s.seeded, s.keeper().GetReturnedTotal(s.chainA.GetContext(), s.pathAB.EndpointA.ChannelID))
 
 	_, _, err = s.returnToNoble(sdkmath.ZeroInt(), s.multisig, 0)
 	s.Require().ErrorIs(err, types.ErrNothingToReturn)
@@ -289,27 +304,25 @@ func (s *MiddlewareTestSuite) TestReturnToNoblePartialAndCap() {
 }
 
 func (s *MiddlewareTestSuite) TestReturnToNobleErrorAckRefundsAndRetries() {
-	// Noble rejects a blocked receiver -> error ack -> voucher refunded to gov.
+	// Noble rejects a blocked receiver -> error ack -> only the returned total is released.
 	blocked := authtypes.NewModuleAddress(distrtypes.ModuleName)
 	_, packet, err := s.returnToNoble(sdkmath.ZeroInt(), blocked, 0)
 	s.Require().NoError(err)
 	s.requireErrorAck(s.relay(s.pathAB, packet))
 
-	ctx := s.chainA.GetContext()
-	s.Require().Equal(s.seeded, s.balance(s.chainA, s.gov, s.voucher), "refund minted back to gov")
-	s.Require().True(s.keeper().GetReturnedTotal(ctx, s.pathAB.EndpointA.ChannelID).IsZero())
+	s.requireVoucherUntouched()
+	s.Require().True(s.keeper().GetReturnedTotal(s.chainA.GetContext(), s.pathAB.EndpointA.ChannelID).IsZero())
 	s.Require().Equal(s.seeded, s.nobleEscrow())
 
-	// Retry reuses the refunded balance: nothing new is minted.
+	// Retry is just another return.
 	res, packet, err := s.returnToNoble(sdkmath.ZeroInt(), s.multisig, 0)
 	s.Require().NoError(err)
-	s.Require().True(res.Minted.IsZero())
 	s.Require().Equal(s.seeded, res.Amount)
 	s.relay(s.pathAB, packet)
 
 	s.Require().True(s.nobleEscrow().IsZero())
 	s.Require().Equal(s.seeded, s.balance(s.chainB, s.multisig, usdc))
-	s.Require().Equal(s.seeded, s.app(s.chainA).BankKeeper.GetSupply(s.chainA.GetContext(), s.voucher).Amount)
+	s.requireVoucherUntouched()
 }
 
 func (s *MiddlewareTestSuite) TestReturnToNobleTimeoutRefunds() {
@@ -321,10 +334,23 @@ func (s *MiddlewareTestSuite) TestReturnToNobleTimeoutRefunds() {
 	s.Require().NoError(s.pathAB.EndpointA.UpdateClient())
 	s.Require().NoError(s.pathAB.EndpointA.TimeoutPacket(packet))
 
-	ctx := s.chainA.GetContext()
-	s.Require().Equal(s.seeded, s.balance(s.chainA, s.gov, s.voucher))
-	s.Require().True(s.keeper().GetReturnedTotal(ctx, s.pathAB.EndpointA.ChannelID).IsZero())
+	s.requireVoucherUntouched()
+	s.Require().True(s.keeper().GetReturnedTotal(s.chainA.GetContext(), s.pathAB.EndpointA.ChannelID).IsZero())
 	s.Require().Equal(s.seeded, s.nobleEscrow())
+}
+
+func (s *MiddlewareTestSuite) TestReturnToNobleWhenVoucherFrozen() {
+	// The bank freeze from the proposal does not affect the return packet.
+	s.app(s.chainA).BankKeeper.SetSendEnabled(s.chainA.GetContext(), s.voucher, false)
+	s.coordinator.CommitBlock(s.chainA)
+
+	_, packet, err := s.returnToNoble(sdkmath.ZeroInt(), s.multisig, 0)
+	s.Require().NoError(err)
+	s.relay(s.pathAB, packet)
+
+	s.Require().True(s.nobleEscrow().IsZero())
+	s.Require().Equal(s.seeded, s.balance(s.chainB, s.multisig, usdc))
+	s.requireVoucherUntouched()
 }
 
 func (s *MiddlewareTestSuite) TestReturnToNobleRejections() {

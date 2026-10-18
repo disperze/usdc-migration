@@ -16,9 +16,10 @@ service Msg {
   // UpdateParams updates the module parameters. Authority only (gov).
   rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
 
-  // ReturnToNoble mints the outstanding voucher supply into the authority
-  // account and IBC-transfers it back to Noble, releasing the USDC held in
-  // Noble's escrow for the channel to the given receiver. Authority only (gov).
+  // ReturnToNoble sends an ICS20 packet returning the outstanding voucher
+  // supply to Noble, releasing the USDC held in Noble's escrow for the channel
+  // to the given receiver. No voucher is minted, burned or moved on this
+  // chain. Authority only (gov).
   rpc ReturnToNoble(MsgReturnToNoble) returns (MsgReturnToNobleResponse);
 }
 
@@ -63,11 +64,6 @@ message MsgReturnToNobleResponse {
   uint64 sequence = 1;
   string denom = 2;
   string amount = 3 [
-    (cosmos_proto.scalar) = "cosmos.Int",
-    (gogoproto.customtype) = "cosmossdk.io/math.Int",
-    (gogoproto.nullable) = false
-  ];
-  string minted = 4 [
     (cosmos_proto.scalar) = "cosmos.Int",
     (gogoproto.customtype) = "cosmossdk.io/math.Int",
     (gogoproto.nullable) = false

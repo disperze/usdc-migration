@@ -16,14 +16,12 @@ func (k *Keeper) ShouldBlockRecv(ctx sdk.Context, destChannel, packetDenom strin
 	return k.GetParams(ctx).ShouldBlockRecv(destChannel, packetDenom)
 }
 
-// OnReturnRefunded releases the returned total of a voucher packet the
-// authority sent to Noble that came back as an error ack or timed out. The
-// transfer module refunds the voucher to the authority, so it can be returned
-// again. Packets not sent by the authority, or not carrying the voucher, are ignored.
+// OnReturnRefunded releases the returned total of a return packet that came
+// back as an error ack or timed out. The return burned nothing, so nothing is
+// minted back: the voucher stays backed by Noble's escrow and can be returned
+// again. Packets that are not return packets are ignored.
 func (k *Keeper) OnReturnRefunded(ctx sdk.Context, sourceChannel, denomPath, sender, amount, reason string) error {
-	params := k.GetParams(ctx)
-	if sender != k.authority || !params.IsNobleChannel(sourceChannel) ||
-		denomPath != types.VoucherPath(sourceChannel, params.BaseDenom) {
+	if !k.IsReturnPacket(ctx, sourceChannel, denomPath, sender) {
 		return nil
 	}
 	amt, ok := math.NewIntFromString(amount)
