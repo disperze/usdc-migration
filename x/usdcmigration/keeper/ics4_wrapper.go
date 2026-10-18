@@ -7,12 +7,13 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
-	porttypes "github.com/cosmos/ibc-go/v10/modules/core/05-port/types"
-	"github.com/cosmos/ibc-go/v10/modules/core/exported"
+	capabilitytypes "github.com/cosmos/ibc-go/modules/capability/types"
+	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
+	porttypes "github.com/cosmos/ibc-go/v8/modules/core/05-port/types"
+	"github.com/cosmos/ibc-go/v8/modules/core/exported"
 
-	"github.com/giansalex/usdc-migration/v10/x/usdcmigration/types"
+	"github.com/giansalex/usdc-migration/v8/x/usdcmigration/types"
 )
 
 var _ porttypes.ICS4Wrapper = (*Keeper)(nil)
@@ -22,6 +23,7 @@ var _ porttypes.ICS4Wrapper = (*Keeper)(nil)
 // before forwarding so a rejected packet never gets a sequence or commitment.
 func (k *Keeper) SendPacket(
 	ctx sdk.Context,
+	chanCap *capabilitytypes.Capability,
 	sourcePort string,
 	sourceChannel string,
 	timeoutHeight clienttypes.Height,
@@ -33,12 +35,12 @@ func (k *Keeper) SendPacket(
 			return 0, err
 		}
 	}
-	return k.ics4Wrapper.SendPacket(ctx, sourcePort, sourceChannel, timeoutHeight, timeoutTimestamp, data)
+	return k.ics4Wrapper.SendPacket(ctx, chanCap, sourcePort, sourceChannel, timeoutHeight, timeoutTimestamp, data)
 }
 
 // WriteAcknowledgement forwards to the next ICS4 wrapper.
-func (k *Keeper) WriteAcknowledgement(ctx sdk.Context, packet exported.PacketI, ack exported.Acknowledgement) error {
-	return k.ics4Wrapper.WriteAcknowledgement(ctx, packet, ack)
+func (k *Keeper) WriteAcknowledgement(ctx sdk.Context, chanCap *capabilitytypes.Capability, packet exported.PacketI, ack exported.Acknowledgement) error {
+	return k.ics4Wrapper.WriteAcknowledgement(ctx, chanCap, packet, ack)
 }
 
 // GetAppVersion forwards to the next ICS4 wrapper.
@@ -62,9 +64,4 @@ func (k *Keeper) checkSend(ctx sdk.Context, denomPath, sender string) error {
 		return errorsmod.Wrapf(types.ErrSendBlocked, "%s can only be sent by %s", denomPath, k.authority)
 	}
 	return nil
-}
-
-// CheckSendDenom is CheckSend for callers that already decoded the packet (IBC v2).
-func (k *Keeper) CheckSendDenom(ctx sdk.Context, denomPath, sender string) error {
-	return k.checkSend(ctx, denomPath, sender)
 }

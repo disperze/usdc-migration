@@ -12,9 +12,9 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	porttypes "github.com/cosmos/ibc-go/v10/modules/core/05-port/types"
+	porttypes "github.com/cosmos/ibc-go/v8/modules/core/05-port/types"
 
-	"github.com/giansalex/usdc-migration/v10/x/usdcmigration/types"
+	"github.com/giansalex/usdc-migration/v8/x/usdcmigration/types"
 )
 
 // Keeper holds the module state and wraps the ICS4 channel used by the

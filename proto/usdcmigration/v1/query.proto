@@ -7,7 +7,7 @@ import "gogoproto/gogo.proto";
 import "google/api/annotations.proto";
 import "usdcmigration/v1/params.proto";
 
-option go_package = "github.com/giansalex/usdc-migration/v10/x/usdcmigration/types";
+option go_package = "github.com/giansalex/usdc-migration/v8/x/usdcmigration/types";
 
 // Query defines the usdcmigration Query service.
 service Query {

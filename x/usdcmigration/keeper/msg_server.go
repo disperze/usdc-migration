@@ -9,10 +9,10 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
+	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
 
-	"github.com/giansalex/usdc-migration/v10/x/usdcmigration/types"
+	"github.com/giansalex/usdc-migration/v8/x/usdcmigration/types"
 )
 
 type msgServer struct {

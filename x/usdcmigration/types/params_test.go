@@ -5,9 +5,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
+	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
 
-	"github.com/giansalex/usdc-migration/v10/x/usdcmigration/types"
+	"github.com/giansalex/usdc-migration/v8/x/usdcmigration/types"
 )
 
 const (
@@ -34,7 +34,7 @@ func TestVoucherDenomMatchesRegistry(t *testing.T) {
 	for ch, want := range cases {
 		require.Equal(t, want, types.VoucherDenom(ch, "uusdc"), ch)
 		// must agree with ibc-go's own derivation
-		require.Equal(t, want, transfertypes.ExtractDenomFromPath(types.VoucherPath(ch, "uusdc")).IBCDenom(), ch)
+		require.Equal(t, want, transfertypes.ParseDenomTrace(types.VoucherPath(ch, "uusdc")).IBCDenom(), ch)
 	}
 }
 

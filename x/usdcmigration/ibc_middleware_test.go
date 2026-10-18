@@ -18,14 +18,14 @@ import (
 	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 
-	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
-	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
-	ibctesting "github.com/cosmos/ibc-go/v10/testing"
+	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
+	channeltypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
+	ibctesting "github.com/cosmos/ibc-go/v8/testing"
 
-	"github.com/giansalex/usdc-migration/v10/testing/simapp"
-	"github.com/giansalex/usdc-migration/v10/x/usdcmigration/keeper"
-	"github.com/giansalex/usdc-migration/v10/x/usdcmigration/types"
+	"github.com/giansalex/usdc-migration/v8/testing/simapp"
+	"github.com/giansalex/usdc-migration/v8/x/usdcmigration/keeper"
+	"github.com/giansalex/usdc-migration/v8/x/usdcmigration/types"
 )
 
 const usdc = "uusdc"
@@ -69,9 +69,9 @@ func (s *MiddlewareTestSuite) SetupTest() {
 	s.chainC = s.coordinator.GetChain(ibctesting.GetChainID(3))
 
 	s.pathAB = ibctesting.NewTransferPath(s.chainA, s.chainB)
-	s.pathAB.Setup()
+	s.coordinator.Setup(s.pathAB)
 	s.pathAC = ibctesting.NewTransferPath(s.chainA, s.chainC)
-	s.pathAC.Setup()
+	s.coordinator.Setup(s.pathAC)
 
 	s.gov = authtypes.NewModuleAddress(govtypes.ModuleName)
 	s.multisig = sdk.AccAddress([]byte("noble-multisig______"))
@@ -218,25 +218,6 @@ func (s *MiddlewareTestSuite) TestUserCanSendVoucherWhenDisabled() {
 	s.setParams(func(p *types.Params) { p.SendBlockEnabled = false })
 	coin := sdk.NewCoin(s.voucher, sdkmath.NewInt(10))
 	s.relay(s.pathAB, s.transfer(s.chainA, s.pathAB.EndpointA.ChannelID, coin, s.chainB.SenderAccount.GetAddress()))
-}
-
-func (s *MiddlewareTestSuite) TestUserCannotSendVoucherOverIBCV2() {
-	pathV2 := ibctesting.NewPath(s.chainA, s.chainC)
-	pathV2.SetupV2()
-
-	// IBC v2 timeouts are unix seconds, not nanoseconds.
-	timeout := uint64(s.chainA.GetContext().BlockTime().Add(time.Hour).Unix())
-
-	msg := s.transferMsg(s.chainA, pathV2.EndpointA.ClientID, sdk.NewCoin(s.voucher, sdkmath.NewInt(10)), s.chainC.SenderAccount.GetAddress())
-	msg.TimeoutTimestamp = timeout
-	_, err := s.chainA.SendMsgs(msg)
-	s.Require().ErrorContains(err, types.ErrSendBlocked.Error())
-
-	// other denoms still go through IBC v2
-	msg = s.transferMsg(s.chainA, pathV2.EndpointA.ClientID, sdk.NewCoin(sdk.DefaultBondDenom, sdkmath.NewInt(10)), s.chainC.SenderAccount.GetAddress())
-	msg.TimeoutTimestamp = timeout
-	_, err = s.chainA.SendMsgs(msg)
-	s.Require().NoError(err)
 }
 
 // --- mint-and-return ---

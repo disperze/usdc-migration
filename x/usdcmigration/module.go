@@ -16,8 +16,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 
-	"github.com/giansalex/usdc-migration/v10/x/usdcmigration/keeper"
-	"github.com/giansalex/usdc-migration/v10/x/usdcmigration/types"
+	"github.com/giansalex/usdc-migration/v8/x/usdcmigration/keeper"
+	"github.com/giansalex/usdc-migration/v8/x/usdcmigration/types"
 )
 
 // ConsensusVersion is the module's consensus version.
