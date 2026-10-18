@@ -2,7 +2,9 @@
 
 One scaffold per chain in [integration.md](../integration.md). Each one is step 3 of the [governance runbook](../../README.md#governance-runbook): `MsgReturnToNoble` followed by `MsgSetSendEnabled`, executed atomically.
 
-Submit them only **after** the chain's software upgrade has added `x/usdcmigration` and set `noble_channels`. Before that, the chain does not know `/usdcmigration.v1.MsgReturnToNoble` and rejects the proposal.
+Before any of this, each chain votes on a text proposal approving the integration: see [signaling/](signaling/README.md).
+
+Submit the return proposals only **after** the chain's software upgrade has added `x/usdcmigration` and set `noble_channels`. Before that, the chain does not know `/usdcmigration.v1.MsgReturnToNoble` and rejects the proposal.
 
 ## Minimum deposit
 
