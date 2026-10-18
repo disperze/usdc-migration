@@ -64,9 +64,10 @@ func (p Params) IsVoucherPath(denomPath string) bool {
 }
 
 // ShouldBlockSend reports whether an outgoing ICS20 packet must be rejected:
-// the voucher may only leave the chain, over any channel, when sent by authority.
-func (p Params) ShouldBlockSend(authority, denomPath, sender string) bool {
-	return p.SendBlockEnabled && sender != authority && p.IsVoucherPath(denomPath)
+// the voucher may not leave the chain over any channel, whoever the sender is
+// (the authority included). Only MsgReturnToNoble returns it to Noble.
+func (p Params) ShouldBlockSend(denomPath string) bool {
+	return p.SendBlockEnabled && p.IsVoucherPath(denomPath)
 }
 
 // validateChannelID mirrors ibc-go's host.ChannelIdentifierValidator

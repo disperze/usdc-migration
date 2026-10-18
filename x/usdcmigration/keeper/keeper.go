@@ -18,15 +18,15 @@ import (
 )
 
 // Keeper holds the module state and wraps the ICS4 channel used by the
-// transfer keeper. It must be handled as a pointer because the transfer keeper
-// and ICS4 wrapper are wired after construction.
+// transfer keeper. It must be handled as a pointer because the ICS4 wrapper
+// may be wired after construction.
 type Keeper struct {
 	cdc       codec.BinaryCodec
 	authority string
 
-	bankKeeper     types.BankKeeper
-	transferKeeper types.TransferKeeper
-	ics4Wrapper    porttypes.ICS4Wrapper
+	bankKeeper           types.BankKeeper
+	ics4Wrapper          porttypes.ICS4Wrapper
+	scopedTransferKeeper types.ScopedKeeper
 
 	Schema         collections.Schema
 	Params         collections.Item[types.Params]
@@ -35,13 +35,16 @@ type Keeper struct {
 
 // NewKeeper creates a new usdcmigration Keeper. ics4Wrapper is the next ICS4
 // wrapper in the send path (the one the transfer keeper used before this
-// module was added, e.g. the PFM keeper or the channel keeper). authority is
-// the gov module account address.
+// module was added, e.g. the PFM keeper or the channel keeper).
+// scopedTransferKeeper is the transfer module's scoped keeper, used to send
+// the return packet on the transfer port. authority is the gov module account
+// address.
 func NewKeeper(
 	cdc codec.BinaryCodec,
 	storeService store.KVStoreService,
 	bankKeeper types.BankKeeper,
 	ics4Wrapper porttypes.ICS4Wrapper,
+	scopedTransferKeeper types.ScopedKeeper,
 	authority string,
 ) *Keeper {
 	if _, err := sdk.AccAddressFromBech32(authority); err != nil {
@@ -50,12 +53,13 @@ func NewKeeper(
 
 	sb := collections.NewSchemaBuilder(storeService)
 	k := &Keeper{
-		cdc:            cdc,
-		authority:      authority,
-		bankKeeper:     bankKeeper,
-		ics4Wrapper:    ics4Wrapper,
-		Params:         collections.NewItem(sb, types.ParamsKey, "params", codec.CollValue[types.Params](cdc)),
-		ReturnedTotals: collections.NewMap(sb, types.ReturnedTotalPrefix, "returned_totals", collections.StringKey, sdk.IntValue),
+		cdc:                  cdc,
+		authority:            authority,
+		bankKeeper:           bankKeeper,
+		ics4Wrapper:          ics4Wrapper,
+		scopedTransferKeeper: scopedTransferKeeper,
+		Params:               collections.NewItem(sb, types.ParamsKey, "params", codec.CollValue[types.Params](cdc)),
+		ReturnedTotals:       collections.NewMap(sb, types.ReturnedTotalPrefix, "returned_totals", collections.StringKey, sdk.IntValue),
 	}
 	schema, err := sb.Build()
 	if err != nil {
@@ -65,15 +69,9 @@ func NewKeeper(
 	return k
 }
 
-// SetTransferKeeper sets the ICS20 Msg server used by MsgReturnToNoble. It is
-// set after construction because the transfer keeper takes this keeper as its
-// ICS4 wrapper.
-func (k *Keeper) SetTransferKeeper(tk types.TransferKeeper) {
-	k.transferKeeper = tk
-}
-
 // WithICS4Wrapper sets the next ICS4 wrapper in the send path, for apps that
-// build their ICS4 chain after the keepers.
+// build their ICS4 chain after the keepers. MsgReturnToNoble also sends
+// through it.
 func (k *Keeper) WithICS4Wrapper(w porttypes.ICS4Wrapper) {
 	k.ics4Wrapper = w
 }
@@ -120,24 +118,18 @@ func (k *Keeper) subReturnedTotal(ctx context.Context, channelID string, amt mat
 }
 
 // ReturnCap computes how much voucher can still be returned over channelID:
-// supply - authority balance - returned total, floored at zero. While inbound
-// USDC and outbound vouchers are blocked, this equals Noble's escrow for the
-// channel minus what has already been released.
-func (k *Keeper) ReturnCap(ctx context.Context, channelID string) (denom string, supply, authorityBalance, returned, cap math.Int, err error) {
+// supply - returned total, floored at zero. Returns do not burn the voucher,
+// so while inbound USDC and outbound vouchers are blocked, this equals Noble's
+// escrow for the channel minus what has already been released.
+func (k *Keeper) ReturnCap(ctx context.Context, channelID string) (denom string, supply, returned, cap math.Int, err error) {
 	params := k.GetParams(ctx)
 	denom = types.VoucherDenom(channelID, params.BaseDenom)
 
-	authority, err := sdk.AccAddressFromBech32(k.authority)
-	if err != nil {
-		return "", math.Int{}, math.Int{}, math.Int{}, math.Int{}, err
-	}
-
 	supply = k.bankKeeper.GetSupply(ctx, denom).Amount
-	authorityBalance = k.bankKeeper.GetBalance(ctx, authority, denom).Amount
 	returned = k.GetReturnedTotal(ctx, channelID)
-	cap = supply.Sub(authorityBalance).Sub(returned)
+	cap = supply.Sub(returned)
 	if cap.IsNegative() {
 		cap = math.ZeroInt()
 	}
-	return denom, supply, authorityBalance, returned, cap, nil
+	return denom, supply, returned, cap, nil
 }

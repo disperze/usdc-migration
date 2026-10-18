@@ -5,20 +5,16 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
+	capabilitytypes "github.com/cosmos/ibc-go/modules/capability/types"
 )
 
 // BankKeeper defines the bank methods used by the module.
 type BankKeeper interface {
 	GetSupply(ctx context.Context, denom string) sdk.Coin
-	GetBalance(ctx context.Context, addr sdk.AccAddress, denom string) sdk.Coin
-	BlockedAddr(addr sdk.AccAddress) bool
-	MintCoins(ctx context.Context, moduleName string, amt sdk.Coins) error
-	SendCoinsFromModuleToAccount(ctx context.Context, senderModule string, recipientAddr sdk.AccAddress, amt sdk.Coins) error
 }
 
-// TransferKeeper is the ICS20 Msg server used to send the voucher back to Noble.
-// Chains that wrap the transfer keeper (e.g. Coreum) should pass the wrapper.
-type TransferKeeper interface {
-	Transfer(ctx context.Context, msg *transfertypes.MsgTransfer) (*transfertypes.MsgTransferResponse, error)
+// ScopedKeeper is the transfer module's scoped capability keeper. It gives
+// MsgReturnToNoble the channel capability needed to send on the transfer port.
+type ScopedKeeper interface {
+	GetCapability(ctx sdk.Context, name string) (*capabilitytypes.Capability, bool)
 }

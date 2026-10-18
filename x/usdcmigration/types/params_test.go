@@ -11,8 +11,6 @@ import (
 )
 
 const (
-	gov   = "cosmos10d07y265gmmuvt4z0w9aw880jnsr700j6zn9kn"
-	user  = "cosmos1qyqszqgpqyqszqgpqyqszqgpqyqszqgpjnp7du"
 	noble = "channel-224"
 	other = "channel-1"
 )
@@ -86,20 +84,18 @@ func TestShouldBlockSend(t *testing.T) {
 		name    string
 		params  types.Params
 		denom   string
-		sender  string
 		blocked bool
 	}{
-		{"user sends voucher", activeParams(), voucher, user, true},
-		{"gov sends voucher", activeParams(), voucher, gov, false},
-		{"user sends native denom", activeParams(), "ujuno", user, false},
-		{"user sends other voucher", activeParams(), "transfer/channel-1/uatom", user, false},
-		{"usdc that arrived via another chain", activeParams(), "transfer/channel-1/uusdc", user, false},
-		{"send block disabled", func() types.Params { p := activeParams(); p.SendBlockEnabled = false; return p }(), voucher, user, false},
-		{"no noble channel configured", types.DefaultParams(), voucher, user, false},
+		{"voucher", activeParams(), voucher, true},
+		{"native denom", activeParams(), "ujuno", false},
+		{"other voucher", activeParams(), "transfer/channel-1/uatom", false},
+		{"usdc that arrived via another chain", activeParams(), "transfer/channel-1/uusdc", false},
+		{"send block disabled", func() types.Params { p := activeParams(); p.SendBlockEnabled = false; return p }(), voucher, false},
+		{"no noble channel configured", types.DefaultParams(), voucher, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			require.Equal(t, tc.blocked, tc.params.ShouldBlockSend(gov, tc.denom, tc.sender))
+			require.Equal(t, tc.blocked, tc.params.ShouldBlockSend(tc.denom))
 		})
 	}
 }

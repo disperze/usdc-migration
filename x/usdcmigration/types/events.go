@@ -9,7 +9,6 @@ const (
 	AttributeKeyChannelID = "channel_id"
 	AttributeKeyDenom     = "denom"
 	AttributeKeyAmount    = "amount"
-	AttributeKeyMinted    = "minted"
 	AttributeKeyReceiver  = "receiver"
 	AttributeKeySequence  = "sequence"
 	AttributeKeyReason    = "reason"

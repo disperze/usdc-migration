@@ -158,7 +158,6 @@ var (
 		stakingtypes.BondedPoolName:    {authtypes.Burner, authtypes.Staking},
 		stakingtypes.NotBondedPoolName: {authtypes.Burner, authtypes.Staking},
 		govtypes.ModuleName:            {authtypes.Burner},
-		usdcmigrationtypes.ModuleName:  {authtypes.Minter},
 		ibctransfertypes.ModuleName:    {authtypes.Minter, authtypes.Burner},
 		ibcfeetypes.ModuleName:         nil,
 		icatypes.ModuleName:            nil,
@@ -485,6 +484,7 @@ func NewSimApp(
 		appCodec, runtime.NewKVStoreService(keys[usdcmigrationtypes.StoreKey]),
 		app.BankKeeper,
 		app.IBCFeeKeeper,
+		scopedTransferKeeper,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 	)
 	app.TransferKeeper = ibctransferkeeper.NewKeeper(
@@ -530,7 +530,6 @@ func NewSimApp(
 	transferStack = transfer.NewIBCModule(app.TransferKeeper)
 	transferStack = ibcfee.NewIBCMiddleware(transferStack, app.IBCFeeKeeper)
 	// usdcmigration must be the outermost middleware of the transfer stack
-	app.UsdcMigrationKeeper.SetTransferKeeper(app.TransferKeeper)
 	transferStack = usdcmigration.NewIBCMiddleware(app.UsdcMigrationKeeper, transferStack)
 
 	// Add transfer stack to IBC Router
