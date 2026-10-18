@@ -1,0 +1,143 @@
+package keeper
+
+import (
+	"context"
+	"fmt"
+
+	"cosmossdk.io/collections"
+	"cosmossdk.io/core/store"
+	"cosmossdk.io/log"
+	"cosmossdk.io/math"
+
+	"github.com/cosmos/cosmos-sdk/codec"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+
+	porttypes "github.com/cosmos/ibc-go/v10/modules/core/05-port/types"
+
+	"github.com/giansalex/usdc-migration/v10/x/usdcmigration/types"
+)
+
+// Keeper holds the module state and wraps the ICS4 channel used by the
+// transfer keeper. It must be handled as a pointer because the transfer keeper
+// and ICS4 wrapper are wired after construction.
+type Keeper struct {
+	cdc       codec.BinaryCodec
+	authority string
+
+	bankKeeper     types.BankKeeper
+	transferKeeper types.TransferKeeper
+	ics4Wrapper    porttypes.ICS4Wrapper
+
+	Schema         collections.Schema
+	Params         collections.Item[types.Params]
+	ReturnedTotals collections.Map[string, math.Int]
+}
+
+// NewKeeper creates a new usdcmigration Keeper. ics4Wrapper is the next ICS4
+// wrapper in the send path (the one the transfer keeper used before this
+// module was added, e.g. the PFM keeper or the channel keeper). authority is
+// the gov module account address.
+func NewKeeper(
+	cdc codec.BinaryCodec,
+	storeService store.KVStoreService,
+	bankKeeper types.BankKeeper,
+	ics4Wrapper porttypes.ICS4Wrapper,
+	authority string,
+) *Keeper {
+	if _, err := sdk.AccAddressFromBech32(authority); err != nil {
+		panic(fmt.Errorf("invalid usdcmigration authority address: %w", err))
+	}
+
+	sb := collections.NewSchemaBuilder(storeService)
+	k := &Keeper{
+		cdc:            cdc,
+		authority:      authority,
+		bankKeeper:     bankKeeper,
+		ics4Wrapper:    ics4Wrapper,
+		Params:         collections.NewItem(sb, types.ParamsKey, "params", codec.CollValue[types.Params](cdc)),
+		ReturnedTotals: collections.NewMap(sb, types.ReturnedTotalPrefix, "returned_totals", collections.StringKey, sdk.IntValue),
+	}
+	schema, err := sb.Build()
+	if err != nil {
+		panic(err)
+	}
+	k.Schema = schema
+	return k
+}
+
+// SetTransferKeeper sets the ICS20 Msg server used by MsgReturnToNoble. It is
+// set after construction because the transfer keeper takes this keeper as its
+// ICS4 wrapper.
+func (k *Keeper) SetTransferKeeper(tk types.TransferKeeper) {
+	k.transferKeeper = tk
+}
+
+// WithICS4Wrapper sets the next ICS4 wrapper in the send path, for apps that
+// build their ICS4 chain after the keepers.
+func (k *Keeper) WithICS4Wrapper(w porttypes.ICS4Wrapper) {
+	k.ics4Wrapper = w
+}
+
+// GetAuthority returns the module authority (gov) address.
+func (k *Keeper) GetAuthority() string {
+	return k.authority
+}
+
+// Logger returns a module-specific logger.
+func (k *Keeper) Logger(ctx context.Context) log.Logger {
+	return sdk.UnwrapSDKContext(ctx).Logger().With("module", "x/"+types.ModuleName)
+}
+
+// GetParams returns the module params, or the defaults if they were never set.
+func (k *Keeper) GetParams(ctx context.Context) types.Params {
+	p, err := k.Params.Get(ctx)
+	if err != nil {
+		return types.DefaultParams()
+	}
+	return p
+}
+
+// GetReturnedTotal returns the amount returned to Noble over channelID and not refunded.
+func (k *Keeper) GetReturnedTotal(ctx context.Context, channelID string) math.Int {
+	amt, err := k.ReturnedTotals.Get(ctx, channelID)
+	if err != nil {
+		return math.ZeroInt()
+	}
+	return amt
+}
+
+func (k *Keeper) addReturnedTotal(ctx context.Context, channelID string, amt math.Int) error {
+	return k.ReturnedTotals.Set(ctx, channelID, k.GetReturnedTotal(ctx, channelID).Add(amt))
+}
+
+// subReturnedTotal decreases the returned total after a refund, flooring at zero.
+func (k *Keeper) subReturnedTotal(ctx context.Context, channelID string, amt math.Int) error {
+	total := k.GetReturnedTotal(ctx, channelID).Sub(amt)
+	if total.IsNegative() {
+		total = math.ZeroInt()
+	}
+	return k.ReturnedTotals.Set(ctx, channelID, total)
+}
+
+// ReturnCap computes how much voucher can still be returned over channelID:
+// supply - authority balance - returned total, floored at zero. While inbound
+// USDC and outbound vouchers are blocked, this equals Noble's escrow for the
+// channel minus what has already been released.
+func (k *Keeper) ReturnCap(ctx context.Context, channelID string) (denom string, supply, authorityBalance, returned, cap math.Int, err error) {
+	params := k.GetParams(ctx)
+	denom = types.VoucherDenom(channelID, params.BaseDenom)
+
+	authority, err := sdk.AccAddressFromBech32(k.authority)
+	if err != nil {
+		return "", math.Int{}, math.Int{}, math.Int{}, math.Int{}, err
+	}
+
+	supply = k.bankKeeper.GetSupply(ctx, denom).Amount
+	authorityBalance = k.bankKeeper.GetBalance(ctx, authority, denom).Amount
+	returned = k.GetReturnedTotal(ctx, channelID)
+	cap = supply.Sub(authorityBalance).Sub(returned)
+	if cap.IsNegative() {
+		cap = math.ZeroInt()
+	}
+	return denom, supply, authorityBalance, returned, cap, nil
+}

@@ -1,0 +1,75 @@
+syntax = "proto3";
+package usdcmigration.v1;
+
+import "amino/amino.proto";
+import "cosmos/msg/v1/msg.proto";
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+import "usdcmigration/v1/params.proto";
+
+option go_package = "github.com/giansalex/usdc-migration/v10/x/usdcmigration/types";
+
+// Msg defines the usdcmigration Msg service.
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  // UpdateParams updates the module parameters. Authority only (gov).
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+
+  // ReturnToNoble mints the outstanding voucher supply into the authority
+  // account and IBC-transfers it back to Noble, releasing the USDC held in
+  // Noble's escrow for the channel to the given receiver. Authority only (gov).
+  rpc ReturnToNoble(MsgReturnToNoble) returns (MsgReturnToNobleResponse);
+}
+
+// MsgUpdateParams is the Msg/UpdateParams request type.
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "usdcmigration/MsgUpdateParams";
+
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  Params params = 2 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+}
+
+// MsgUpdateParamsResponse is the Msg/UpdateParams response type.
+message MsgUpdateParamsResponse {}
+
+// MsgReturnToNoble is the Msg/ReturnToNoble request type.
+message MsgReturnToNoble {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "usdcmigration/MsgReturnToNoble";
+
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // channel_id must be one of params.noble_channels.
+  string channel_id = 2;
+  // receiver is the Noble address (multisig) that receives the unescrowed USDC.
+  string receiver = 3;
+  // amount of voucher to return. Zero returns the whole remaining cap.
+  string amount = 4 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+  // timeout_seconds is added to the block time to build the packet timeout.
+  uint64 timeout_seconds = 5;
+  string memo = 6;
+}
+
+// MsgReturnToNobleResponse is the Msg/ReturnToNoble response type.
+message MsgReturnToNobleResponse {
+  uint64 sequence = 1;
+  string denom = 2;
+  string amount = 3 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+  string minted = 4 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+}

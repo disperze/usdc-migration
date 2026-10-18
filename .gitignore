@@ -1,0 +1,6 @@
+/build/
+*.test
+*.out
+coverage.*
+.idea/
+.vscode/

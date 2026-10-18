@@ -1,0 +1,65 @@
+syntax = "proto3";
+package usdcmigration.v1;
+
+import "amino/amino.proto";
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+import "usdcmigration/v1/params.proto";
+
+option go_package = "github.com/giansalex/usdc-migration/v10/x/usdcmigration/types";
+
+// Query defines the usdcmigration Query service.
+service Query {
+  // Params returns the module parameters.
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/usdcmigration/v1/params";
+  }
+
+  // ReturnCap returns the voucher denom of a Noble channel and how much of it
+  // can still be returned to Noble.
+  rpc ReturnCap(QueryReturnCapRequest) returns (QueryReturnCapResponse) {
+    option (google.api.http).get = "/usdcmigration/v1/return_cap/{channel_id}";
+  }
+}
+
+message QueryParamsRequest {}
+
+message QueryParamsResponse {
+  Params params = 1 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+}
+
+message QueryReturnCapRequest {
+  string channel_id = 1;
+}
+
+message QueryReturnCapResponse {
+  string denom = 1;
+  // supply is the bank total supply of the voucher denom.
+  string supply = 2 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+  // authority_balance is the voucher held by the authority (gov) account.
+  string authority_balance = 3 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+  // returned_total is the amount already returned (and not refunded).
+  string returned_total = 4 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+  // cap = supply - authority_balance - returned_total.
+  string cap = 5 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+}

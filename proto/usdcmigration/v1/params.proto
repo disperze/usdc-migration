@@ -1,0 +1,28 @@
+syntax = "proto3";
+package usdcmigration.v1;
+
+import "amino/amino.proto";
+
+option go_package = "github.com/giansalex/usdc-migration/v10/x/usdcmigration/types";
+
+// Params defines the parameters of the usdcmigration module.
+message Params {
+  option (amino.name) = "usdcmigration/Params";
+
+  // noble_channels are the ICS20 channel IDs on this chain whose counterparty
+  // is Noble (e.g. "channel-224" on Juno).
+  repeated string noble_channels = 1;
+
+  // base_denom is the Noble native denom being deprecated (e.g. "uusdc").
+  // The voucher denom on this chain is derived as
+  // ibc/HASH("transfer/<noble_channel>/<base_denom>").
+  string base_denom = 2;
+
+  // recv_block_enabled rejects ICS20 packets of base_denom arriving on any of
+  // noble_channels with an error acknowledgement.
+  bool recv_block_enabled = 3;
+
+  // send_block_enabled rejects outgoing ICS20 transfers of the voucher denom
+  // on any channel unless the sender is the module authority (gov).
+  bool send_block_enabled = 4;
+}

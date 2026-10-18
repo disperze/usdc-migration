@@ -1,0 +1,70 @@
+package keeper
+
+import (
+	"encoding/json"
+
+	errorsmod "cosmossdk.io/errors"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+
+	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
+	porttypes "github.com/cosmos/ibc-go/v10/modules/core/05-port/types"
+	"github.com/cosmos/ibc-go/v10/modules/core/exported"
+
+	"github.com/giansalex/usdc-migration/v10/x/usdcmigration/types"
+)
+
+var _ porttypes.ICS4Wrapper = (*Keeper)(nil)
+
+// SendPacket rejects ICS20 packets carrying the Noble voucher unless the sender
+// is the authority, then forwards to the next ICS4 wrapper. The check runs
+// before forwarding so a rejected packet never gets a sequence or commitment.
+func (k *Keeper) SendPacket(
+	ctx sdk.Context,
+	sourcePort string,
+	sourceChannel string,
+	timeoutHeight clienttypes.Height,
+	timeoutTimestamp uint64,
+	data []byte,
+) (uint64, error) {
+	if sourcePort == types.TransferPortID {
+		if err := k.CheckSend(ctx, data); err != nil {
+			return 0, err
+		}
+	}
+	return k.ics4Wrapper.SendPacket(ctx, sourcePort, sourceChannel, timeoutHeight, timeoutTimestamp, data)
+}
+
+// WriteAcknowledgement forwards to the next ICS4 wrapper.
+func (k *Keeper) WriteAcknowledgement(ctx sdk.Context, packet exported.PacketI, ack exported.Acknowledgement) error {
+	return k.ics4Wrapper.WriteAcknowledgement(ctx, packet, ack)
+}
+
+// GetAppVersion forwards to the next ICS4 wrapper.
+func (k *Keeper) GetAppVersion(ctx sdk.Context, portID, channelID string) (string, bool) {
+	return k.ics4Wrapper.GetAppVersion(ctx, portID, channelID)
+}
+
+// CheckSend returns ErrSendBlocked if the ICS20 v1 packet data carries the
+// Noble voucher and was not sent by the authority. Data that is not ICS20 is
+// ignored.
+func (k *Keeper) CheckSend(ctx sdk.Context, data []byte) error {
+	var packet transfertypes.FungibleTokenPacketData
+	if err := json.Unmarshal(data, &packet); err != nil {
+		return nil
+	}
+	return k.checkSend(ctx, packet.Denom, packet.Sender)
+}
+
+func (k *Keeper) checkSend(ctx sdk.Context, denomPath, sender string) error {
+	if k.GetParams(ctx).ShouldBlockSend(k.authority, denomPath, sender) {
+		return errorsmod.Wrapf(types.ErrSendBlocked, "%s can only be sent by %s", denomPath, k.authority)
+	}
+	return nil
+}
+
+// CheckSendDenom is CheckSend for callers that already decoded the packet (IBC v2).
+func (k *Keeper) CheckSendDenom(ctx sdk.Context, denomPath, sender string) error {
+	return k.checkSend(ctx, denomPath, sender)
+}
