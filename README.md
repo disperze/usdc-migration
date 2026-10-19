@@ -7,7 +7,7 @@ Circle announced on 2026-09-10 that it is ending USDC and CCTP V1 support on Nob
 - CCTP V1 burn limits start shrinking on 2026-10-31.
 - Full pause on **2027-01-12**.
 
-After the pause, Noble rejects every incoming `uusdc` packet, so vouchers can no longer be redeemed. Many holders on IBC-connected chains are inactive and will never move their funds. This module lets **governance** release the USDC held in Noble's escrow for the chain to a Noble multisig in one step. The multisig then swaps or bridges it, for example to Injective USDC; that part is out of scope here. Holders are repaid off-chain from a snapshot.
+After the pause, Noble rejects every incoming `uusdc` packet, so vouchers can no longer be redeemed. Many holders on IBC-connected chains are inactive and will never move their funds. This module lets **governance** release the USDC held in Noble's escrow for the chain to a Noble multisig in one step. The multisig then swaps or bridges it, for example to Injective USDC; that part is out of scope here. Holders receive the tokens via an on-chain distribution or by claiming it through a contract.
 
 ## What it does
 
