@@ -1,4 +1,6 @@
-# usdc-migration: `x/usdcmigration`
+# `x/usdcmigration`
+
+[![test](https://github.com/disperze/usdc-migration/actions/workflows/test.yml/badge.svg)](https://github.com/disperze/usdc-migration/actions/workflows/test.yml)
 
 Cosmos SDK module and IBC middleware that let a chain wind down its **Noble USDC** voucher before Circle pauses USDC on Noble.
 
@@ -15,7 +17,7 @@ After the pause, Noble rejects every incoming `uusdc` packet, so vouchers can no
 |---|---|
 | **Receive block** | ICS20 packets of `base_denom` (`uusdc`) arriving on a configured Noble channel get an error acknowledgement, so Noble refunds the sender. Other Noble denoms pass. |
 | **Send block** | Outgoing ICS20 transfers of the Noble USDC voucher (`ibc/HASH` of `transfer/<noble-channel>/uusdc`) are rejected on **every** channel, including IBC v2, for **every** sender, gov included. This covers PFM forwards, ibc-hooks and wasm sends, and EVM precompile sends, because they all go through the transfer keeper. |
-| **Return packet** | `MsgReturnToNoble` (gov only) builds the ICS20 packet that returns the voucher to Noble and sends it straight to the next ICS4 wrapper, without going through the transfer keeper. Nothing is minted, burned or moved on this chain. Noble sees an ordinary voucher return and releases the matching USDC from the channel escrow to the receiver. |
+| **Withdraw funds** | `MsgReturnToNoble` (gov only) builds the ICS20 packet that returns the voucher to Noble and sends it straight to the next ICS4 wrapper, without going through the transfer keeper. Nothing is minted, burned or moved on this chain. Noble sees an ordinary voucher return and releases the matching USDC from the channel escrow to the receiver. |
 
 User balances are **never touched**. After the return their vouchers are no longer backed. Governance freezes them with bank `MsgSetSendEnabled` in the same proposal, so the snapshot height and the freeze height match.
 
