@@ -27,15 +27,17 @@ Each `deposit` is set to the chain's full `min_deposit`, so the proposal goes st
 
 ## Before submitting
 
-1. **Post on the chain's forum first** and leave it open for discussion for a few days. Most of these communities expect that before an on-chain vote.
-2. **Replace the placeholders** in `summary` and `metadata`:
-   - `REPLACE_WITH_SIGNERS`: who controls the Noble multisig.
-   - `REPLACE_WITH_ASSET`: what holders are repaid in, e.g. Injective USDC.
-   - `REPLACE_WITH_REPAYMENT_PLAN_URL`: how the snapshot and repayment work.
-   - `REPLACE_WITH_FORUM_URL`: the discussion thread.
-   - `ipfs://REPLACE_WITH_METADATA_CID`: proposal metadata (255 characters max), or `""`.
-3. **Check with the core team.** The upgrade is theirs to ship, so agree on the target release and date before the vote.
-4. **Submit:**
+The files are ready to submit. There are no placeholders left:
+
+- **Proposer:** the Disperze validator (https://x.com/Disperze_).
+- **Noble multisig signers:** the chain's main validators. Further details follow if the proposal is approved.
+- **Repayment asset:** USDC (Injective).
+- **Repayment plan:** https://github.com/disperze/usdc-migration/blob/master/docs/repayment.md.
+- **Prior use:** the escrow return was already tested in the Evmos shutdown ([`forceIBCTransfer`](https://github.com/disperze/evmos/blob/release/v20/x/ibc/transfer/keeper/sudo_ibc.go)).
+- **`metadata`:** `""`.
+
+1. **Check with the core team.** The upgrade is theirs to ship, so agree on the target release and date before the vote.
+2. **Submit:**
 
    ```sh
    <binary> tx gov submit-proposal docs/proposals/signaling/<chain>.json \
