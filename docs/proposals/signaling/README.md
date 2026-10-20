@@ -8,6 +8,8 @@ This is the first of three votes on each chain:
 2. **Software upgrade**: adds the module and sets `noble_channels`. Its wiring is in [integration.md](../../integration.md).
 3. **Return**: `MsgReturnToNoble` + `MsgSetSendEnabled`. The scaffolds are in [../](../README.md).
 
+The `summary` is Markdown: headings, blank lines between paragraphs, and lists. That way explorers and wallets render it line by line without trailing spaces. `<chain>.md` is a generated copy of each title and summary, for previewing. Edit the `.json` and regenerate the `.md` (`{ printf '# %s\n\n' "$(jq -r .title x.json)"; jq -r .summary x.json; } > x.md`).
+
 Each file's `summary` is the full proposal text that voters see in explorers and wallets. It is written per chain: chain name, Noble channel, voucher denom, the voucher supply as of 2026-10-18, and chain-specific notes for Agoric (Fast USDC), Coreum (DEX orders) and Haqq (EVM precompile).
 
 ## Deposit
