@@ -1,6 +1,6 @@
 # Signaling proposals
 
-These are text proposals, one per chain in [integration.md](../../integration.md). Each one asks the chain's governance to approve including `x/usdcmigration` in a later software upgrade. They have no messages (`"messages": []`), so they execute nothing and move no funds. All 8 chains run gov v1 (SDK ≥ v0.50), where a proposal without messages is the standard text proposal.
+These are text proposals, one per chain in [integration.md](../../integration.md). Each one asks the chain's governance to approve including `x/usdcmigration` in a later software upgrade. They have no messages (`"messages": []`), so they execute nothing and move no funds. All 8 chains run gov v1 (SDK ≥ v0.50), where a text proposal is one with no messages. The SDK rejects a proposal that has neither messages nor metadata (`either metadata or Msgs length must be non-nil`), so each file sets `metadata` to the link of its `<chain>.md`.
 
 This is the first of three votes on each chain:
 
@@ -36,7 +36,7 @@ The files are ready to submit. There are no placeholders left:
 - **Repayment asset:** USDC (Injective).
 - **Repayment plan:** https://github.com/disperze/usdc-migration/blob/master/docs/repayment.md.
 - **Prior use:** the escrow return was already tested in the Evmos shutdown ([`forceIBCTransfer`](https://github.com/disperze/evmos/blob/release/v20/x/ibc/transfer/keeper/sudo_ibc.go)).
-- **`metadata`:** `""`.
+- **`metadata`:** `https://github.com/disperze/usdc-migration/blob/master/docs/proposals/signaling/<chain>.md` (gov limit: 255 characters).
 
 1. **Check with the core team.** The upgrade is theirs to ship, so agree on the target release and date before the vote.
 2. **Submit:**
