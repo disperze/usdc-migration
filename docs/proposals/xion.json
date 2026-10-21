@@ -1,0 +1,29 @@
+{
+  "messages": [
+    {
+      "@type": "/usdcmigration.v1.MsgReturnToNoble",
+      "authority": "xion10d07y265gmmuvt4z0w9aw880jnsr700jctf8qc",
+      "channel_id": "channel-2",
+      "receiver": "noble1REPLACE_WITH_MULTISIG",
+      "amount": "0",
+      "timeout_seconds": "86400",
+      "memo": ""
+    },
+    {
+      "@type": "/cosmos.bank.v1beta1.MsgSetSendEnabled",
+      "authority": "xion10d07y265gmmuvt4z0w9aw880jnsr700jctf8qc",
+      "send_enabled": [
+        {
+          "denom": "ibc/F082B65C88E4B6D5EF1DB243CDA1D331D002759E938A0F5CD3FFDC5D53B3E349",
+          "enabled": false
+        }
+      ],
+      "use_default_for": []
+    }
+  ],
+  "metadata": "ipfs://REPLACE_WITH_METADATA_CID",
+  "deposit": "1000000000uxion",
+  "title": "Return Noble USDC escrow to the migration multisig and freeze the Xion USDC voucher",
+  "summary": "Circle ends USDC support on Noble; the full pause is on 2027-01-12. This proposal returns all Noble USDC vouchers (ibc/F082B65C88E4B6D5EF1DB243CDA1D331D002759E938A0F5CD3FFDC5D53B3E349) still in circulation on Xion to Noble over channel-2 (MsgReturnToNoble, amount 0 = the full return cap), releasing the matching USDC from Noble escrow to the multisig noble1REPLACE_WITH_MULTISIG. In the same execution it disables bank sends of the voucher, so the holder snapshot is the height emitted by the usdcmigration_return_to_noble event. Holders are repaid off-chain from that snapshot: REPLACE_WITH_REPAYMENT_PLAN_URL.",
+  "expedited": false
+}
