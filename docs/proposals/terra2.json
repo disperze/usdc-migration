@@ -1,0 +1,29 @@
+{
+  "messages": [
+    {
+      "@type": "/usdcmigration.v1.MsgReturnToNoble",
+      "authority": "terra10d07y265gmmuvt4z0w9aw880jnsr700juxf95n",
+      "channel_id": "channel-253",
+      "receiver": "noble1REPLACE_WITH_MULTISIG",
+      "amount": "0",
+      "timeout_seconds": "86400",
+      "memo": ""
+    },
+    {
+      "@type": "/cosmos.bank.v1beta1.MsgSetSendEnabled",
+      "authority": "terra10d07y265gmmuvt4z0w9aw880jnsr700juxf95n",
+      "send_enabled": [
+        {
+          "denom": "ibc/2C962DAB9F57FE0921435426AE75196009FAA1981BF86991203C8411F8980FDB",
+          "enabled": false
+        }
+      ],
+      "use_default_for": []
+    }
+  ],
+  "metadata": "ipfs://REPLACE_WITH_METADATA_CID",
+  "deposit": "5000000000uluna",
+  "title": "Return Noble USDC escrow to the migration multisig and freeze the Terra USDC voucher",
+  "summary": "Circle ends USDC support on Noble; the full pause is on 2027-01-12. This proposal returns all Noble USDC vouchers (ibc/2C962DAB9F57FE0921435426AE75196009FAA1981BF86991203C8411F8980FDB) still in circulation on Terra to Noble over channel-253 (MsgReturnToNoble, amount 0 = the full return cap), releasing the matching USDC from Noble escrow to the multisig noble1REPLACE_WITH_MULTISIG. In the same execution it disables bank sends of the voucher, so the holder snapshot is the height emitted by the usdcmigration_return_to_noble event. Holders are repaid off-chain from that snapshot: REPLACE_WITH_REPAYMENT_PLAN_URL.",
+  "expedited": false
+}

@@ -1,0 +1,29 @@
+{
+  "messages": [
+    {
+      "@type": "/usdcmigration.v1.MsgReturnToNoble",
+      "authority": "core10d07y265gmmuvt4z0w9aw880jnsr700jfvt73g",
+      "channel_id": "channel-19",
+      "receiver": "noble1REPLACE_WITH_MULTISIG",
+      "amount": "0",
+      "timeout_seconds": "86400",
+      "memo": ""
+    },
+    {
+      "@type": "/cosmos.bank.v1beta1.MsgSetSendEnabled",
+      "authority": "core10d07y265gmmuvt4z0w9aw880jnsr700jfvt73g",
+      "send_enabled": [
+        {
+          "denom": "ibc/E1E3674A0E4E1EF9C69646F9AF8D9497173821826074622D831BAB73CCB99A2D",
+          "enabled": false
+        }
+      ],
+      "use_default_for": []
+    }
+  ],
+  "metadata": "ipfs://REPLACE_WITH_METADATA_CID",
+  "deposit": "50000000000ucore",
+  "title": "Return Noble USDC escrow to the migration multisig and freeze the Coreum USDC voucher",
+  "summary": "Circle ends USDC support on Noble; the full pause is on 2027-01-12. This proposal returns all Noble USDC vouchers (ibc/E1E3674A0E4E1EF9C69646F9AF8D9497173821826074622D831BAB73CCB99A2D) still in circulation on Coreum to Noble over channel-19 (MsgReturnToNoble, amount 0 = the full return cap), releasing the matching USDC from Noble escrow to the multisig noble1REPLACE_WITH_MULTISIG. In the same execution it disables bank sends of the voucher, so the holder snapshot is the height emitted by the usdcmigration_return_to_noble event. Holders are repaid off-chain from that snapshot: REPLACE_WITH_REPAYMENT_PLAN_URL.",
+  "expedited": false
+}
