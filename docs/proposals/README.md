@@ -47,7 +47,7 @@ The return cap (`amount: "0"`) is the voucher supply on the source chain, not th
 | Terra2 | 310,071.86 | 311,071.38 | `311071376277` |
 | Archway | 33,623.14 | 33,621.45 | `33621448005` |
 
-On Agoric and Terra2 this releases the escrow above the supply too. On Archway the supply is above the escrow, so `"0"` would ask Noble for more than it holds. Noble refunds any amount above the escrow balance (error ack). The escrow only stops moving at the upgrade height, so set these amounts again from Noble after the upgrade.
+On Agoric and Terra2 this releases the escrow above the supply too. On Archway the supply is above the escrow, so `"0"` would ask Noble for more than it holds. Noble refunds any amount above the escrow balance (error ack). The escrow only stops moving at the upgrade height, so set these amounts again from Noble after the upgrade, once pending packets are relayed (step 1 of [Before submitting](#before-submitting)).
 
 Every voucher denom in the scaffolds matches `query ibc-transfer denom-hash transfer/<channel>/uusdc` on that chain. That includes the three that are computed rather than taken from the chain registry (Coreum, Haqq, ixo).
 
@@ -61,15 +61,23 @@ Replace the placeholders in each file:
 
 Then:
 
-1. Check the cap: `<binary> query usdcmigration return-cap <channel>`, and Noble's escrow balance for the counterparty channel. If they differ, set `amount` to the escrow balance (Agoric, Terra2 and Archway already do); if they are equal, `"0"` returns it all.
-2. Submit:
+1. **Relay every pending packet on the channel, in both directions, after the upgrade.** Packets sent before the upgrade height still move funds when they land: a Noble→chain `uusdc` packet now gets an error ack and Noble refunds the sender from escrow, a chain→Noble voucher packet releases USDC from escrow, and an expired packet refunds its sender once it is timed out. Until they are all received, acknowledged or timed out, the escrow balance and the voucher supply can still change, and the `amount` would be stale. Both ends hold old commitments today (on 2026-10-26, 2,443 on Noble `channel-21` and 717 on Agoric `channel-62`), so do not expect zero; what matters is that nothing is left to relay.
+
+   ```sh
+   hermes query packet pending --chain <noble-chain-id> --port transfer --channel <noble channel>
+   hermes clear packets --chain <noble-chain-id> --port transfer --channel <noble channel>
+   ```
+
+   Run the query again until it reports no unreceived packets or acks on either side. Then read the final escrow balance.
+2. Check the cap: `<binary> query usdcmigration return-cap <channel>`, and Noble's escrow balance for the counterparty channel. If they differ, set `amount` to the escrow balance (Agoric, Terra2 and Archway already do); if they are equal, `"0"` returns it all.
+3. Submit:
 
    ```sh
    <binary> tx gov submit-proposal docs/proposals/<chain>.json \
      --from <key> --chain-id <chain-id> --gas auto --gas-adjustment 1.5 --fees <fees>
    ```
 
-3. After it passes, relay the return packet and verify it (runbook step 4). Then take the snapshot at the `height` from the `usdcmigration_return_to_noble` event.
+4. After it passes, relay the return packet and verify it (runbook step 4). Then take the snapshot at the `height` from the `usdcmigration_return_to_noble` event.
 
 Notes:
 
