@@ -10,14 +10,14 @@ Circle is ending USDC support on Noble:
 - CCTP V1 burn limits start shrinking on 2026-10-31.
 - USDC on Noble is fully paused on **2027-01-12**.
 
-After the pause Noble rejects every incoming `uusdc` packet, so the Noble USDC voucher on Agoric (`ibc/FE98AAD68F02F03565E9FA39A5E627946699B2B07115889ED812D8BA639576A9`, received over `channel-62`) can no longer be redeemed. About **23,444.18 USDC** of this voucher is on Agoric (supply as of 2026-10-18), and many holders are inactive and will not move it in time.
+After the pause Noble rejects every incoming `uusdc` packet, so the Noble USDC voucher on Agoric (`ibc/FE98AAD68F02F03565E9FA39A5E627946699B2B07115889ED812D8BA639576A9`, received over `channel-62`) can no longer be redeemed. About **23,444.18 USDC** of this voucher is on Agoric (supply as of 2026-10-26), and many holders are inactive and will not move it in time. Noble holds more than that in escrow for Agoric (Noble `channel-21`, about **87,016.97 USDC** on 2026-10-26); only the voucher supply on Agoric can be returned, so the difference stays in Noble escrow.
 
 ## Proposal
 
 A YES vote asks the Agoric core contributors to include the [`x/usdcmigration` module](https://github.com/disperze/usdc-migration) in a later software upgrade. That upgrade would:
 
 - Reject new `uusdc` transfers arriving from Noble on `channel-62` (Noble refunds the sender).
-- Reject outgoing IBC transfers of the voucher on every channel, so the voucher supply stays equal to the USDC Noble holds in escrow for Agoric.
+- Reject outgoing IBC transfers of the voucher on every channel, so the voucher supply on Agoric can no longer change through IBC.
 - Let governance, in a separate proposal, return that escrowed USDC to a Noble multisig in a single IBC packet and freeze the voucher at the same height.
 
 Holders are then repaid off-chain from a snapshot taken at that height. The module never touches user balances, mints nothing and needs no module-account permissions. The same escrow return was already used and tested when [Evmos was shut down](https://github.com/disperze/evmos/blob/release/v20/x/ibc/transfer/keeper/sudo_ibc.go).

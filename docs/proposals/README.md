@@ -1,6 +1,6 @@
 # Return proposals
 
-One scaffold per chain in [integration.md](../integration.md). Each one is step 3 of the [governance runbook](../../README.md#governance-runbook): `MsgReturnToNoble` followed by `MsgSetSendEnabled`, executed atomically.
+One scaffold per chain in [integration.md](../integration.md), except Juno, which is no longer included. Each one is step 3 of the [governance runbook](../../README.md#governance-runbook): `MsgReturnToNoble` followed by `MsgSetSendEnabled`, executed atomically.
 
 Before any of this, each chain votes on a text proposal approving the integration: see [signaling/](signaling/README.md).
 
@@ -12,7 +12,6 @@ Queried on 2026-10-18 from each chain's `cosmos/gov/v1/params/deposit`. A propos
 
 | Chain | Chain ID | `min_deposit` (to reach voting) | Initial deposit at submit | Deposit period | Voting period | Quorum |
 |---|---|---|---|---|---|---|
-| Juno | `juno-1` | **5,000 JUNO** (`5000000000ujuno`) | 20% = 1,000 JUNO | 10 days | 5 days | 33.4% |
 | Agoric | `agoric-3` | **5,000 BLD** (`5000000000ubld`) | none | 2 days | 3 days | 33.4% |
 | Xion | `xion-mainnet-1` | **1,000 XION** (`1000000000uxion`) | none | 2 days | 4 days | 33.4% |
 | Coreum | `coreum-mainnet-1` | **50,000 CORE** (`50000000000ucore`) | 50% = 25,000 CORE | 14 days | 5 days | 40% |
@@ -29,7 +28,6 @@ Expedited proposals (1-day voting) are not used in the scaffolds. On Agoric and 
 
 | Chain | Gov module address (`authority`) | Source channel | Noble channel | Noble escrow address | Noble escrow balance (USDC) |
 |---|---|---|---|---|---|
-| Juno | `juno10d07y265gmmuvt4z0w9aw880jnsr700jvss730` | `channel-224` | `channel-3` | `noble1krtrt5dvhnw5j46ljgah7q5f9pm3vvaktq572d` | 13,609.42 |
 | Agoric | `agoric10d07y265gmmuvt4z0w9aw880jnsr700jgl36x9` | `channel-62` | `channel-21` | `noble16knm868dfqlvxhpdsv5w6n2an6rgsn3shzldlm` | 87,016.97 |
 | Xion | `xion10d07y265gmmuvt4z0w9aw880jnsr700jctf8qc` | `channel-2` | `channel-113` | `noble10zfpsus4h27eqgrjar7yj2mwer3q84zkwmsgml` | 67,319.81 |
 | Coreum | `core10d07y265gmmuvt4z0w9aw880jnsr700jfvt73g` | `channel-19` | `channel-49` | `noble1u929fykjps0qny9enq0rgdsavau7amszl7dj9y` | 55,000.34 |
@@ -37,11 +35,11 @@ Expedited proposals (1-day voting) are not used in the scaffolds. On Agoric and 
 | Haqq | `haqq10d07y265gmmuvt4z0w9aw880jnsr700jc9xkg9` | `channel-4` | `channel-32` | `noble1y376tnlmyu23jaxdjj3xdpsf2crxfgpaly3ynx` | 68,769.51 |
 | Impacthub (ixo) | `ixo10d07y265gmmuvt4z0w9aw880jnsr700j9hdhjq` | `channel-26` | `channel-15` | `noble186mpcj53q3hgfnzdu9wkteczs236vdclxm264k` | 54,302.02 |
 | Archway | `archway10d07y265gmmuvt4z0w9aw880jnsr700j0f0puy` | `channel-29` | `channel-12` | `noble1004rr9e45qpm2ylvxymphm8sryvxq3a2kcyjgw` | 33,621.45 |
-| **Total** | | | | | **690,700.89** |
+| **Total** | | | | | **677,091.47** |
 
 The source channel is the chain's end of its transfer channel to Noble, and the value set in `noble_channels`. The Noble channel is the counterparty, taken from the [chain registry `_IBC` files](https://github.com/cosmos/chain-registry/tree/master/_IBC). The escrow address is `sha256("ics20-1" + 0x00 + "transfer/<noble channel>")[:20]` in bech32 `noble`, and matches Noble's `ibc/apps/transfer/v1/channels/<noble channel>/ports/transfer/escrow_address`. Balances are its `uusdc` balance at Noble height 62,476,409.
 
-The return cap is the voucher supply on the source chain, not the escrow balance. They are equal on Xion, Coreum, Haqq and ixo. On Agoric the escrow is about 63,573 USDC above the local voucher supply, on Terra2 about 1,000 and on Juno about 28, mostly vouchers forwarded from those chains to other chains. That part stays in escrow after the return. On Archway the voucher supply (33,623.14) is about 1.69 USDC **above** the escrow, so a full-cap return (`amount: "0"`) would ask Noble for more than it holds and be refunded. Re-check both values before submitting, and if the gap is still there set `amount` to the escrow balance.
+The return cap is the voucher supply on the source chain, not the escrow balance. They are equal on Xion, Coreum, Haqq and ixo. On Agoric the escrow is about 63,573 USDC above the voucher supply (23,444.18) and on Terra2 about 1,000 above it (310,061.86). That part stays in Noble escrow after the return. On Archway the voucher supply (33,623.14) is about 1.69 USDC **above** the escrow, so a full-cap return (`amount: "0"`) would ask Noble for more than it holds and be refunded. Re-check both values before submitting, and if the gap is still there set `amount` to the escrow balance.
 
 Every voucher denom in the scaffolds matches `query ibc-transfer denom-hash transfer/<channel>/uusdc` on that chain. That includes the three that are computed rather than taken from the chain registry (Coreum, Haqq, ixo).
 

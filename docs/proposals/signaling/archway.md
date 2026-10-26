@@ -10,7 +10,7 @@ Circle is ending USDC support on Noble:
 - CCTP V1 burn limits start shrinking on 2026-10-31.
 - USDC on Noble is fully paused on **2027-01-12**.
 
-After the pause Noble rejects every incoming `uusdc` packet, so the Noble USDC voucher on Archway (`ibc/43897B9739BD63E3A08A88191999C632E052724AB96BD4C74AE31375C991F48D`, received over `channel-29`) can no longer be redeemed. About **33,628.67 USDC** of this voucher is on Archway (supply as of 2026-10-18), and many holders are inactive and will not move it in time.
+After the pause Noble rejects every incoming `uusdc` packet, so the Noble USDC voucher on Archway (`ibc/43897B9739BD63E3A08A88191999C632E052724AB96BD4C74AE31375C991F48D`, received over `channel-29`) can no longer be redeemed. About **33,623.14 USDC** of this voucher is on Archway (supply as of 2026-10-26), and many holders are inactive and will not move it in time.
 
 ## Proposal
 
