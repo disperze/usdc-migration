@@ -29,7 +29,8 @@ The return packet follows the approach used, and tested, for the Evmos shutdown 
 cap = bank supply(voucher) − returned_total(channel)
 ```
 
-- While both blocks are on, the voucher supply equals Noble's escrow for the channel. That escrow can only shrink through the gov return, which does not burn the voucher. So `cap` is exactly what Noble can still pay out, and a second return cannot over-draw.
+- While both blocks are on, the voucher supply and Noble's escrow for the channel no longer change, except through the gov return, which does not burn the voucher. Normally they are equal, so `cap` is what Noble can still pay out.
+- The escrow can be above the supply (for example USDC sent straight to the escrow address) or slightly below it. An explicit `amount` is therefore not limited by `cap`: set it to Noble's escrow balance to release all of it. Noble enforces that balance; a larger amount gets an error ack and is handled like any refund below.
 - A return packet is any voucher packet sent by gov on a Noble channel. Gov can no longer send the voucher any other way, so this match is exact.
 - If Noble answers with an error ack, or the packet times out, the middleware does **not** pass the packet on to the transfer module, which would mint the voucher back to gov. Instead it only decreases `returned_total`.
 - A retry is just another `MsgReturnToNoble`.
@@ -59,7 +60,7 @@ Only the ibc-go-specific files differ between the two lines: the middleware, the
 **`MsgReturnToNoble`** (gov only). Fields:
 - `channel_id`: must be in `noble_channels`.
 - `receiver`: a `noble1…` address.
-- `amount`: `0` means the whole cap.
+- `amount`: `0` means the whole cap. A non-zero amount may exceed the cap, up to Noble's escrow for the channel.
 - `timeout_seconds`: `0` means 3600; the maximum is 7 days.
 - `memo`
 
@@ -78,7 +79,7 @@ Only the ibc-go-specific files differ between the two lines: the middleware, the
    - From this height on, nobody can bring new USDC in from Noble or move the voucher out.
    - Local bank sends and DEX trades still work.
 2. **Check the cap.** Run `query usdcmigration return-cap <channel>`.
-   - `cap` should equal Noble's escrow balance for the counterparty channel: `GET <noble-rest>/cosmos/bank/v1beta1/balances/<escrow>`.
+   - Compare it with Noble's escrow balance for the counterparty channel: `GET <noble-rest>/cosmos/bank/v1beta1/balances/<escrow>`. If they differ, use the escrow balance as `amount` instead of `0`.
 3. **Proposal**, one proposal executed atomically. Per-chain scaffolds and minimum deposits are in [docs/proposals](docs/proposals/README.md).
 
    ```json

@@ -31,15 +31,23 @@ Expedited proposals (1-day voting) are not used in the scaffolds. On Agoric and 
 | Agoric | `agoric10d07y265gmmuvt4z0w9aw880jnsr700jgl36x9` | `channel-62` | `channel-21` | `noble16knm868dfqlvxhpdsv5w6n2an6rgsn3shzldlm` | 87,016.97 |
 | Xion | `xion10d07y265gmmuvt4z0w9aw880jnsr700jctf8qc` | `channel-2` | `channel-113` | `noble10zfpsus4h27eqgrjar7yj2mwer3q84zkwmsgml` | 67,319.81 |
 | Coreum | `core10d07y265gmmuvt4z0w9aw880jnsr700jfvt73g` | `channel-19` | `channel-49` | `noble1u929fykjps0qny9enq0rgdsavau7amszl7dj9y` | 55,000.34 |
-| Terra2 | `terra10d07y265gmmuvt4z0w9aw880jnsr700juxf95n` | `channel-253` | `channel-30` | `noble12vssh8spx53qzg532xpj22sa7e85ts4x76e5rm` | 311,061.38 |
+| Terra2 | `terra10d07y265gmmuvt4z0w9aw880jnsr700juxf95n` | `channel-253` | `channel-30` | `noble12vssh8spx53qzg532xpj22sa7e85ts4x76e5rm` | 311,071.38 |
 | Haqq | `haqq10d07y265gmmuvt4z0w9aw880jnsr700jc9xkg9` | `channel-4` | `channel-32` | `noble1y376tnlmyu23jaxdjj3xdpsf2crxfgpaly3ynx` | 68,769.51 |
 | Impacthub (ixo) | `ixo10d07y265gmmuvt4z0w9aw880jnsr700j9hdhjq` | `channel-26` | `channel-15` | `noble186mpcj53q3hgfnzdu9wkteczs236vdclxm264k` | 54,302.02 |
 | Archway | `archway10d07y265gmmuvt4z0w9aw880jnsr700j0f0puy` | `channel-29` | `channel-12` | `noble1004rr9e45qpm2ylvxymphm8sryvxq3a2kcyjgw` | 33,621.45 |
-| **Total** | | | | | **677,091.47** |
+| **Total** | | | | | **677,101.47** |
 
-The source channel is the chain's end of its transfer channel to Noble, and the value set in `noble_channels`. The Noble channel is the counterparty, taken from the [chain registry `_IBC` files](https://github.com/cosmos/chain-registry/tree/master/_IBC). The escrow address is `sha256("ics20-1" + 0x00 + "transfer/<noble channel>")[:20]` in bech32 `noble`, and matches Noble's `ibc/apps/transfer/v1/channels/<noble channel>/ports/transfer/escrow_address`. Balances are its `uusdc` balance at Noble height 62,476,409.
+The source channel is the chain's end of its transfer channel to Noble, and the value set in `noble_channels`. The Noble channel is the counterparty, taken from the [chain registry `_IBC` files](https://github.com/cosmos/chain-registry/tree/master/_IBC). The escrow address is `sha256("ics20-1" + 0x00 + "transfer/<noble channel>")[:20]` in bech32 `noble`, and matches Noble's `ibc/apps/transfer/v1/channels/<noble channel>/ports/transfer/escrow_address`. Balances are its `uusdc` balance at Noble height 62,477,983.
 
-The return cap is the voucher supply on the source chain, not the escrow balance. They are equal on Xion, Coreum, Haqq and ixo. On Agoric the escrow is about 63,573 USDC above the voucher supply (23,444.18) and on Terra2 about 1,000 above it (310,061.86). That part stays in Noble escrow after the return. On Archway the voucher supply (33,623.14) is about 1.69 USDC **above** the escrow, so a full-cap return (`amount: "0"`) would ask Noble for more than it holds and be refunded. Re-check both values before submitting, and if the gap is still there set `amount` to the escrow balance.
+The return cap (`amount: "0"`) is the voucher supply on the source chain, not the escrow balance. They are equal on Xion, Coreum, Haqq and ixo, so those scaffolds use `"0"`. Elsewhere the scaffold sets `amount` to the escrow balance in `uusdc`, which the module accepts even above the cap:
+
+| Chain | Voucher supply | Noble escrow | `amount` |
+|---|---|---|---|
+| Agoric | 23,444.18 | 87,016.97 | `87016970394` |
+| Terra2 | 310,071.86 | 311,071.38 | `311071376277` |
+| Archway | 33,623.14 | 33,621.45 | `33621448005` |
+
+On Agoric and Terra2 this releases the escrow above the supply too. On Archway the supply is above the escrow, so `"0"` would ask Noble for more than it holds. Noble refunds any amount above the escrow balance (error ack). The escrow only stops moving at the upgrade height, so set these amounts again from Noble after the upgrade.
 
 Every voucher denom in the scaffolds matches `query ibc-transfer denom-hash transfer/<channel>/uusdc` on that chain. That includes the three that are computed rather than taken from the chain registry (Coreum, Haqq, ixo).
 
@@ -53,7 +61,7 @@ Replace the placeholders in each file:
 
 Then:
 
-1. Check the cap: `<binary> query usdcmigration return-cap <channel>`. It should equal Noble's escrow balance for the counterparty channel.
+1. Check the cap: `<binary> query usdcmigration return-cap <channel>`, and Noble's escrow balance for the counterparty channel. If they differ, set `amount` to the escrow balance (Agoric, Terra2 and Archway already do); if they are equal, `"0"` returns it all.
 2. Submit:
 
    ```sh
