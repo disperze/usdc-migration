@@ -10,7 +10,7 @@ Circle is ending USDC support on Noble:
 - CCTP V1 burn limits start shrinking on 2026-10-31.
 - USDC on Noble is fully paused on **2027-01-12**.
 
-After the pause Noble rejects every incoming `uusdc` packet, so the Noble USDC voucher on Coreum (`ibc/E1E3674A0E4E1EF9C69646F9AF8D9497173821826074622D831BAB73CCB99A2D`, received over `channel-19`) can no longer be redeemed. About **55,102.61 USDC** of this voucher is on Coreum (supply as of 2026-10-18), and many holders are inactive and will not move it in time.
+After the pause Noble rejects every incoming `uusdc` packet, so the Noble USDC voucher on Coreum (`ibc/E1E3674A0E4E1EF9C69646F9AF8D9497173821826074622D831BAB73CCB99A2D`, received over `channel-19`) can no longer be redeemed. About **55,000.34 USDC** of this voucher is on Coreum (supply as of 2026-10-26), and many holders are inactive and will not move it in time.
 
 ## Proposal
 
