@@ -287,13 +287,19 @@ func (s *MiddlewareTestSuite) TestReturnToNobleDrainsEscrow() {
 }
 
 func (s *MiddlewareTestSuite) TestReturnToNoblePartialAndCap() {
+	channel := s.pathAB.EndpointA.ChannelID
 	half := s.seeded.QuoRaw(2)
 	_, packet, err := s.returnToNoble(half, s.multisig, 0)
 	s.Require().NoError(err)
 	s.relay(s.pathAB, packet)
 
-	_, _, err = s.returnToNoble(half.AddRaw(1), s.multisig, 0)
-	s.Require().ErrorIs(err, types.ErrExceedsReturnCap)
+	// More than Noble's escrow: sent, but Noble answers with an error ack and
+	// the returned total is released again.
+	_, packet, err = s.returnToNoble(half.AddRaw(1), s.multisig, 0)
+	s.Require().NoError(err)
+	s.requireErrorAck(s.relay(s.pathAB, packet))
+	s.Require().Equal(half, s.keeper().GetReturnedTotal(s.chainA.GetContext(), channel))
+	s.Require().Equal(half, s.nobleEscrow())
 
 	_, packet, err = s.returnToNoble(sdkmath.ZeroInt(), s.multisig, 0)
 	s.Require().NoError(err)
@@ -301,6 +307,41 @@ func (s *MiddlewareTestSuite) TestReturnToNoblePartialAndCap() {
 
 	s.Require().True(s.nobleEscrow().IsZero())
 	s.Require().Equal(s.seeded, s.balance(s.chainB, s.multisig, usdc))
+}
+
+func (s *MiddlewareTestSuite) TestReturnToNobleDrainsEscrowAboveSupply() {
+	// USDC sent straight to Noble's escrow address leaves it above the voucher supply.
+	extra := sdkmath.NewInt(250_000)
+	escrow := transfertypes.GetEscrowAddress(transfertypes.PortID, s.pathAB.EndpointB.ChannelID)
+	s.Require().NoError(banktestutil.FundAccount(s.chainB.GetContext(), s.app(s.chainB).BankKeeper, escrow, sdk.NewCoins(sdk.NewCoin(usdc, extra))))
+	// The total escrow is tracked per denom across all channels; on Noble other
+	// channels keep it far above this channel's balance. Model that here.
+	transferKeeper := s.app(s.chainB).TransferKeeper
+	total := transferKeeper.GetTotalEscrowForDenom(s.chainB.GetContext(), usdc)
+	transferKeeper.SetTotalEscrowForDenom(s.chainB.GetContext(), total.AddAmount(extra))
+	s.coordinator.CommitBlock(s.chainB)
+	all := s.seeded.Add(extra)
+	s.Require().Equal(all, s.nobleEscrow())
+
+	res, packet, err := s.returnToNoble(all, s.multisig, 0)
+	s.Require().NoError(err)
+	s.Require().Equal(all, res.Amount)
+	ack := s.relay(s.pathAB, packet)
+	var a channeltypes.Acknowledgement
+	s.Require().NoError(transfertypes.ModuleCdc.UnmarshalJSON(ack, &a))
+	s.Require().True(a.Success())
+
+	s.Require().True(s.nobleEscrow().IsZero())
+	s.Require().Equal(all, s.balance(s.chainB, s.multisig, usdc))
+	s.requireVoucherUntouched()
+
+	_, _, returned, returnCap, err := s.keeper().ReturnCap(s.chainA.GetContext(), s.pathAB.EndpointA.ChannelID)
+	s.Require().NoError(err)
+	s.Require().Equal(all, returned)
+	s.Require().True(returnCap.IsZero())
+
+	_, _, err = s.returnToNoble(sdkmath.ZeroInt(), s.multisig, 0)
+	s.Require().ErrorIs(err, types.ErrNothingToReturn)
 }
 
 func (s *MiddlewareTestSuite) TestReturnToNobleErrorAckRefundsAndRetries() {
@@ -372,11 +413,6 @@ func (s *MiddlewareTestSuite) TestReturnToNobleRejections() {
 	msg.ChannelId = s.pathAC.EndpointA.ChannelID
 	_, err = srv.ReturnToNoble(ctx, &msg)
 	s.Require().ErrorIs(err, types.ErrUnknownChannel)
-
-	msg = valid
-	msg.Amount = s.seeded.AddRaw(1)
-	_, err = srv.ReturnToNoble(ctx, &msg)
-	s.Require().ErrorIs(err, types.ErrExceedsReturnCap)
 
 	msg = valid
 	msg.Receiver = "noble1invalid"

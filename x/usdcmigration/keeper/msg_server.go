@@ -68,15 +68,17 @@ func (m msgServer) ReturnToNoble(goCtx context.Context, msg *types.MsgReturnToNo
 		return nil, err
 	}
 
+	// Zero returns the remaining cap. An explicit amount is not limited by the
+	// cap, so gov can release the whole Noble escrow when it holds more than
+	// the voucher supply (e.g. USDC sent straight to the escrow address).
+	// Noble enforces the escrow balance: a larger amount gets an error ack and
+	// the returned total is released again.
 	amount := msg.Amount
 	if amount.IsZero() {
 		amount = returnCap
 	}
 	if !amount.IsPositive() {
 		return nil, types.ErrNothingToReturn
-	}
-	if amount.GT(returnCap) {
-		return nil, errorsmod.Wrapf(types.ErrExceedsReturnCap, "requested %s, cap %s", amount, returnCap)
 	}
 
 	timeoutSeconds := msg.TimeoutSeconds

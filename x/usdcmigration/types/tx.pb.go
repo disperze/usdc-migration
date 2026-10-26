@@ -129,7 +129,8 @@ type MsgReturnToNoble struct {
 	ChannelId string `protobuf:"bytes,2,opt,name=channel_id,json=channelId,proto3" json:"channel_id,omitempty"`
 	// receiver is the Noble address (multisig) that receives the unescrowed USDC.
 	Receiver string `protobuf:"bytes,3,opt,name=receiver,proto3" json:"receiver,omitempty"`
-	// amount of voucher to return. Zero returns the whole remaining cap.
+	// amount of voucher to return. Zero returns the whole remaining cap. A
+	// non-zero amount may exceed the cap, up to Noble's escrow for the channel.
 	Amount cosmossdk_io_math.Int `protobuf:"bytes,4,opt,name=amount,proto3,customtype=cosmossdk.io/math.Int" json:"amount"`
 	// timeout_seconds is added to the block time to build the packet timeout.
 	TimeoutSeconds uint64 `protobuf:"varint,5,opt,name=timeout_seconds,json=timeoutSeconds,proto3" json:"timeout_seconds,omitempty"`
