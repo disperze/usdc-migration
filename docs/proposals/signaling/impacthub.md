@@ -10,7 +10,7 @@ Circle is ending USDC support on Noble:
 - CCTP V1 burn limits start shrinking on 2026-10-31.
 - USDC on Noble is fully paused on **2027-01-12**.
 
-After the pause Noble rejects every incoming `uusdc` packet, so the Noble USDC voucher on ixo (Impacthub) (`ibc/6BBE9BD4246F8E04948D5A4EEE7164B2630263B9EBB5E7DC5F0A46C62A2FF97B`, received over `channel-26`) can no longer be redeemed. About **66,809.26 USDC** of this voucher is on ixo (Impacthub) (supply as of 2026-10-18), and many holders are inactive and will not move it in time.
+After the pause Noble rejects every incoming `uusdc` packet, so the Noble USDC voucher on ixo (Impacthub) (`ibc/6BBE9BD4246F8E04948D5A4EEE7164B2630263B9EBB5E7DC5F0A46C62A2FF97B`, received over `channel-26`) can no longer be redeemed. About **54,302.02 USDC** of this voucher is on ixo (Impacthub) (supply as of 2026-10-26), and many holders are inactive and will not move it in time.
 
 ## Proposal
 

@@ -9,7 +9,8 @@ var (
 	ErrUnknownChannel = errorsmod.Register(ModuleName, 5, "channel is not a configured Noble channel")
 	// Code 6 (ErrAuthorityBlocked) is retired: returns no longer move funds
 	// through the authority account.
-	ErrExceedsReturnCap = errorsmod.Register(ModuleName, 7, "amount exceeds the returnable voucher supply")
+	// Code 7 (ErrExceedsReturnCap) is retired: an explicit return amount is
+	// limited by Noble's escrow, not by the voucher supply.
 	ErrNothingToReturn  = errorsmod.Register(ModuleName, 8, "no voucher left to return")
 	ErrInvalidReceiver  = errorsmod.Register(ModuleName, 9, "invalid Noble receiver address")
 	ErrInvalidTimeout   = errorsmod.Register(ModuleName, 10, "invalid timeout")

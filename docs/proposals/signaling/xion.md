@@ -10,7 +10,7 @@ Circle is ending USDC support on Noble:
 - CCTP V1 burn limits start shrinking on 2026-10-31.
 - USDC on Noble is fully paused on **2027-01-12**.
 
-After the pause Noble rejects every incoming `uusdc` packet, so the Noble USDC voucher on Xion (`ibc/F082B65C88E4B6D5EF1DB243CDA1D331D002759E938A0F5CD3FFDC5D53B3E349`, received over `channel-2`) can no longer be redeemed. About **65,690.84 USDC** of this voucher is on Xion (supply as of 2026-10-18), and many holders are inactive and will not move it in time.
+After the pause Noble rejects every incoming `uusdc` packet, so the Noble USDC voucher on Xion (`ibc/F082B65C88E4B6D5EF1DB243CDA1D331D002759E938A0F5CD3FFDC5D53B3E349`, received over `channel-2`) can no longer be redeemed. About **67,319.81 USDC** of this voucher is on Xion (supply as of 2026-10-26), and many holders are inactive and will not move it in time.
 
 ## Proposal
 

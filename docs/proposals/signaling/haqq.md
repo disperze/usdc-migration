@@ -10,7 +10,7 @@ Circle is ending USDC support on Noble:
 - CCTP V1 burn limits start shrinking on 2026-10-31.
 - USDC on Noble is fully paused on **2027-01-12**.
 
-After the pause Noble rejects every incoming `uusdc` packet, so the Noble USDC voucher on Haqq (`ibc/BFF0D3805B50D93E2FA5C0B2DDF7E0B30A631076CD80BC12A48C0E95404B4A41`, received over `channel-4`) can no longer be redeemed. About **68,769.51 USDC** of this voucher is on Haqq (supply as of 2026-10-18), and many holders are inactive and will not move it in time.
+After the pause Noble rejects every incoming `uusdc` packet, so the Noble USDC voucher on Haqq (`ibc/BFF0D3805B50D93E2FA5C0B2DDF7E0B30A631076CD80BC12A48C0E95404B4A41`, received over `channel-4`) can no longer be redeemed. About **68,769.51 USDC** of this voucher is on Haqq (supply as of 2026-10-26), and many holders are inactive and will not move it in time.
 
 ## Proposal
 

@@ -5,7 +5,7 @@
       "authority": "agoric10d07y265gmmuvt4z0w9aw880jnsr700jgl36x9",
       "channel_id": "channel-62",
       "receiver": "noble1REPLACE_WITH_MULTISIG",
-      "amount": "0",
+      "amount": "87016970394",
       "timeout_seconds": "86400",
       "memo": ""
     },
@@ -24,6 +24,6 @@
   "metadata": "ipfs://REPLACE_WITH_METADATA_CID",
   "deposit": "5000000000ubld",
   "title": "Return Noble USDC escrow to the migration multisig and freeze the Agoric USDC voucher",
-  "summary": "Circle ends USDC support on Noble; the full pause is on 2027-01-12. This proposal returns all Noble USDC vouchers (ibc/FE98AAD68F02F03565E9FA39A5E627946699B2B07115889ED812D8BA639576A9) still in circulation on Agoric to Noble over channel-62 (MsgReturnToNoble, amount 0 = the full return cap), releasing the matching USDC from Noble escrow to the multisig noble1REPLACE_WITH_MULTISIG. In the same execution it disables bank sends of the voucher, so the holder snapshot is the height emitted by the usdcmigration_return_to_noble event. Holders are repaid off-chain from that snapshot: REPLACE_WITH_REPAYMENT_PLAN_URL.",
+  "summary": "Circle ends USDC support on Noble; the full pause is on 2027-01-12. This proposal returns Noble's full USDC escrow for Agoric (87,016.970394 USDC, Noble channel-21) to the multisig noble1REPLACE_WITH_MULTISIG over channel-62 (MsgReturnToNoble with that explicit amount), covering all Noble USDC vouchers (ibc/FE98AAD68F02F03565E9FA39A5E627946699B2B07115889ED812D8BA639576A9) still in circulation on Agoric. In the same execution it disables bank sends of the voucher, so the holder snapshot is the height emitted by the usdcmigration_return_to_noble event. Holders are repaid off-chain from that snapshot: REPLACE_WITH_REPAYMENT_PLAN_URL.",
   "expedited": false
 }
