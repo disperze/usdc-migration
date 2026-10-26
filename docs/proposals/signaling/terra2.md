@@ -10,7 +10,7 @@ Circle is ending USDC support on Noble:
 - CCTP V1 burn limits start shrinking on 2026-10-31.
 - USDC on Noble is fully paused on **2027-01-12**.
 
-After the pause Noble rejects every incoming `uusdc` packet, so the Noble USDC voucher on Terra (`ibc/2C962DAB9F57FE0921435426AE75196009FAA1981BF86991203C8411F8980FDB`, received over `channel-253`) can no longer be redeemed. About **386,565.78 USDC** of this voucher is on Terra (supply as of 2026-10-18), and many holders are inactive and will not move it in time.
+After the pause Noble rejects every incoming `uusdc` packet, so the Noble USDC voucher on Terra (`ibc/2C962DAB9F57FE0921435426AE75196009FAA1981BF86991203C8411F8980FDB`, received over `channel-253`) can no longer be redeemed. About **310,061.86 USDC** of this voucher is on Terra (supply as of 2026-10-26), and many holders are inactive and will not move it in time.
 
 ## Proposal
 

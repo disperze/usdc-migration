@@ -48,7 +48,8 @@ message MsgReturnToNoble {
   string channel_id = 2;
   // receiver is the Noble address (multisig) that receives the unescrowed USDC.
   string receiver = 3;
-  // amount of voucher to return. Zero returns the whole remaining cap.
+  // amount of voucher to return. Zero returns the whole remaining cap. A
+  // non-zero amount may exceed the cap, up to Noble's escrow for the channel.
   string amount = 4 [
     (cosmos_proto.scalar) = "cosmos.Int",
     (gogoproto.customtype) = "cosmossdk.io/math.Int",
