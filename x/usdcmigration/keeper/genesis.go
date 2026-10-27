@@ -20,7 +20,7 @@ func (k *Keeper) InitGenesis(ctx context.Context, gs types.GenesisState) error {
 }
 
 // ExportGenesis exports the module state.
-func (k *Keeper) ExportGenesis(ctx context.Context) (*types.GenesisState, error) {
+func (k *Keeper) ExportGenesis(ctx context.Context) (_ *types.GenesisState, err error) {
 	gs := types.DefaultGenesis()
 	gs.Params = k.GetParams(ctx)
 
@@ -28,7 +28,11 @@ func (k *Keeper) ExportGenesis(ctx context.Context) (*types.GenesisState, error)
 	if err != nil {
 		return nil, err
 	}
-	defer iter.Close()
+	defer func() {
+		if cerr := iter.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
+	}()
 	for ; iter.Valid(); iter.Next() {
 		kv, err := iter.KeyValue()
 		if err != nil {

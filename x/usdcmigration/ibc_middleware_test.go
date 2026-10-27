@@ -128,7 +128,7 @@ func (s *MiddlewareTestSuite) transferMsg(from *ibctesting.TestChain, channel st
 func (s *MiddlewareTestSuite) transfer(from *ibctesting.TestChain, channel string, coin sdk.Coin, to sdk.AccAddress) channeltypes.Packet {
 	res, err := from.SendMsgs(s.transferMsg(from, channel, coin, to))
 	s.Require().NoError(err)
-	packet, err := ibctesting.ParsePacketFromEvents(res.Events)
+	packet, err := ibctesting.ParseV1PacketFromEvents(res.Events)
 	s.Require().NoError(err)
 	return packet
 }
@@ -152,7 +152,7 @@ func (s *MiddlewareTestSuite) returnToNoble(amount sdkmath.Int, receiver sdk.Acc
 	if err != nil {
 		return nil, channeltypes.Packet{}, err
 	}
-	packet, perr := ibctesting.ParsePacketFromEvents(ctx.EventManager().ABCIEvents())
+	packet, perr := ibctesting.ParseV1PacketFromEvents(ctx.EventManager().ABCIEvents())
 	s.Require().NoError(perr)
 	s.coordinator.CommitBlock(s.chainA)
 	return res, packet, nil
