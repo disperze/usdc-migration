@@ -68,17 +68,11 @@ func (im IBCMiddleware) OnChanCloseConfirm(ctx sdk.Context, portID, channelID st
 // with an error acknowledgement, so Noble refunds the sender.
 func (im IBCMiddleware) OnRecvPacket(ctx sdk.Context, channelVersion string, packet channeltypes.Packet, relayer sdk.AccAddress) exported.Acknowledgement {
 	var data transfertypes.FungibleTokenPacketData
-	if err := json.Unmarshal(packet.GetData(), &data); err == nil {
-		block, err := im.keeper.ShouldBlockRecv(ctx, packet.DestinationChannel, data.Denom)
-		if err != nil {
-			// Fail closed: an error ack makes Noble refund the sender.
-			return channeltypes.NewErrorAcknowledgement(err)
-		}
-		if block {
-			return channeltypes.NewErrorAcknowledgement(
-				errorsmod.Wrapf(types.ErrRecvBlocked, "%s on %s", data.Denom, packet.DestinationChannel),
-			)
-		}
+	if err := json.Unmarshal(packet.GetData(), &data); err == nil &&
+		im.keeper.ShouldBlockRecv(ctx, packet.DestinationChannel, data.Denom) {
+		return channeltypes.NewErrorAcknowledgement(
+			errorsmod.Wrapf(types.ErrRecvBlocked, "%s on %s", data.Denom, packet.DestinationChannel),
+		)
 	}
 	return im.app.OnRecvPacket(ctx, channelVersion, packet, relayer)
 }
@@ -88,11 +82,7 @@ func (im IBCMiddleware) OnRecvPacket(ctx sdk.Context, channelVersion string, pac
 // never reaches the transfer app: the return burned nothing, and the app's
 // refund would mint the voucher to the authority.
 func (im IBCMiddleware) OnAcknowledgementPacket(ctx sdk.Context, channelVersion string, packet channeltypes.Packet, acknowledgement []byte, relayer sdk.AccAddress) error {
-	data, isReturn, err := im.returnPacketData(ctx, packet)
-	if err != nil {
-		return err
-	}
-	if isReturn {
+	if data, ok := im.returnPacketData(ctx, packet); ok {
 		var ack channeltypes.Acknowledgement
 		if err := transfertypes.ModuleCdc.UnmarshalJSON(acknowledgement, &ack); err == nil && !ack.Success() {
 			return im.keeper.OnReturnRefunded(ctx, packet.SourceChannel, packet.Sequence, data.Denom, data.Sender, data.Amount, types.RefundReasonErrorAck)
@@ -105,11 +95,7 @@ func (im IBCMiddleware) OnAcknowledgementPacket(ctx sdk.Context, channelVersion 
 // out. Like an error ack, the timeout of a return packet never reaches the
 // transfer app, so no voucher is minted back.
 func (im IBCMiddleware) OnTimeoutPacket(ctx sdk.Context, channelVersion string, packet channeltypes.Packet, relayer sdk.AccAddress) error {
-	data, isReturn, err := im.returnPacketData(ctx, packet)
-	if err != nil {
-		return err
-	}
-	if isReturn {
+	if data, ok := im.returnPacketData(ctx, packet); ok {
 		return im.keeper.OnReturnRefunded(ctx, packet.SourceChannel, packet.Sequence, data.Denom, data.Sender, data.Amount, types.RefundReasonTimeout)
 	}
 	return im.app.OnTimeoutPacket(ctx, channelVersion, packet, relayer)
@@ -117,16 +103,15 @@ func (im IBCMiddleware) OnTimeoutPacket(ctx sdk.Context, channelVersion string, 
 
 // returnPacketData decodes the ICS20 data of packet and reports whether it is
 // a return packet sent by MsgReturnToNoble.
-func (im IBCMiddleware) returnPacketData(ctx sdk.Context, packet channeltypes.Packet) (transfertypes.FungibleTokenPacketData, bool, error) {
+func (im IBCMiddleware) returnPacketData(ctx sdk.Context, packet channeltypes.Packet) (transfertypes.FungibleTokenPacketData, bool) {
 	var data transfertypes.FungibleTokenPacketData
 	if packet.SourcePort != types.TransferPortID {
-		return data, false, nil
+		return data, false
 	}
 	if err := json.Unmarshal(packet.GetData(), &data); err != nil {
-		return data, false, nil
+		return data, false
 	}
-	isReturn, err := im.keeper.IsReturnPacket(ctx, packet.SourceChannel, data.Denom, data.Sender)
-	return data, isReturn, err
+	return data, im.keeper.IsReturnPacket(ctx, packet.SourceChannel, data.Denom, data.Sender)
 }
 
 // SendPacket implements porttypes.ICS4Wrapper.

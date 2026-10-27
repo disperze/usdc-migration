@@ -12,12 +12,8 @@ import (
 
 // ShouldBlockRecv reports whether an ICS20 packet of packetDenom arriving on
 // destChannel must be answered with an error acknowledgement.
-func (k *Keeper) ShouldBlockRecv(ctx sdk.Context, destChannel, packetDenom string) (bool, error) {
-	params, err := k.GetParams(ctx)
-	if err != nil {
-		return false, err
-	}
-	return params.ShouldBlockRecv(destChannel, packetDenom), nil
+func (k *Keeper) ShouldBlockRecv(ctx sdk.Context, destChannel, packetDenom string) bool {
+	return k.GetParams(ctx).ShouldBlockRecv(destChannel, packetDenom)
 }
 
 // OnReturnRefunded releases the returned total of a return packet that came
@@ -25,9 +21,8 @@ func (k *Keeper) ShouldBlockRecv(ctx sdk.Context, destChannel, packetDenom strin
 // minted back: the voucher stays backed by Noble's escrow and can be returned
 // again. Packets that are not return packets are ignored.
 func (k *Keeper) OnReturnRefunded(ctx sdk.Context, sourceChannel string, sequence uint64, denomPath, sender, amount, reason string) error {
-	isReturn, err := k.IsReturnPacket(ctx, sourceChannel, denomPath, sender)
-	if err != nil || !isReturn {
-		return err
+	if !k.IsReturnPacket(ctx, sourceChannel, denomPath, sender) {
+		return nil
 	}
 	amt, ok := math.NewIntFromString(amount)
 	if !ok {

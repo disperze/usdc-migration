@@ -140,7 +140,7 @@ bash scripts/protocgen.sh   # needs buf, protoc-gen-gocosmos, protoc-gen-grpc-ga
 
 **Tests:**
 - `x/usdcmigration/types`: rule tables, and voucher hashes checked against chain-registry.
-- `x/usdcmigration/keeper`: authority, params, the bytes of the return packet, the send block applying to gov, and undecodable params surfacing as errors.
+- `x/usdcmigration/keeper`: authority, params, the bytes of the return packet, and the send block applying to gov.
 - `x/usdcmigration` (end to end, `ibctesting` with three chains):
   - receive block and refund on Noble;
   - send block on v1 and v2, gov included;

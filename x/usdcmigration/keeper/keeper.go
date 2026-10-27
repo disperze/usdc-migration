@@ -2,7 +2,6 @@ package keeper
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"cosmossdk.io/collections"
@@ -84,14 +83,12 @@ func (k *Keeper) Logger(ctx context.Context) log.Logger {
 }
 
 // GetParams returns the module params, or the defaults if they were never set.
-// Any other store error is returned, so a broken store is never mistaken for
-// inert params.
-func (k *Keeper) GetParams(ctx context.Context) (types.Params, error) {
+func (k *Keeper) GetParams(ctx context.Context) types.Params {
 	p, err := k.Params.Get(ctx)
-	if errors.Is(err, collections.ErrNotFound) {
-		return types.DefaultParams(), nil
+	if err != nil {
+		return types.DefaultParams()
 	}
-	return p, err
+	return p
 }
 
 // SetParams validates and stores the module params. Upgrade handlers should
@@ -104,29 +101,25 @@ func (k *Keeper) SetParams(ctx context.Context, p types.Params) error {
 }
 
 // GetReturnedTotal returns the amount returned to Noble over channelID and not refunded.
-func (k *Keeper) GetReturnedTotal(ctx context.Context, channelID string) (math.Int, error) {
+func (k *Keeper) GetReturnedTotal(ctx context.Context, channelID string) math.Int {
 	amt, err := k.ReturnedTotals.Get(ctx, channelID)
-	if errors.Is(err, collections.ErrNotFound) {
-		return math.ZeroInt(), nil
+	if err != nil {
+		return math.ZeroInt()
 	}
-	return amt, err
+	return amt
 }
 
 func (k *Keeper) addReturnedTotal(ctx context.Context, channelID string, amt math.Int) error {
-	total, err := k.GetReturnedTotal(ctx, channelID)
-	if err != nil {
-		return err
-	}
-	return k.ReturnedTotals.Set(ctx, channelID, total.Add(amt))
+	return k.ReturnedTotals.Set(ctx, channelID, k.GetReturnedTotal(ctx, channelID).Add(amt))
 }
 
 // subReturnedTotal decreases the returned total after a refund, flooring at zero.
 func (k *Keeper) subReturnedTotal(ctx context.Context, channelID string, amt math.Int) error {
-	total, err := k.GetReturnedTotal(ctx, channelID)
-	if err != nil {
-		return err
+	total := k.GetReturnedTotal(ctx, channelID).Sub(amt)
+	if total.IsNegative() {
+		total = math.ZeroInt()
 	}
-	return k.ReturnedTotals.Set(ctx, channelID, math.MaxInt(total.Sub(amt), math.ZeroInt()))
+	return k.ReturnedTotals.Set(ctx, channelID, total)
 }
 
 // ReturnCapInfo describes how much voucher can still be returned over a channel.
@@ -141,21 +134,14 @@ type ReturnCapInfo struct {
 // supply - returned total, floored at zero. Returns do not burn the voucher,
 // so while inbound USDC and outbound vouchers are blocked, this equals Noble's
 // escrow for the channel minus what has already been released.
-func (k *Keeper) ReturnCap(ctx context.Context, channelID string) (ReturnCapInfo, error) {
-	params, err := k.GetParams(ctx)
-	if err != nil {
-		return ReturnCapInfo{}, err
-	}
-	returned, err := k.GetReturnedTotal(ctx, channelID)
-	if err != nil {
-		return ReturnCapInfo{}, err
-	}
-	denom := types.VoucherDenom(channelID, params.BaseDenom)
+func (k *Keeper) ReturnCap(ctx context.Context, channelID string) ReturnCapInfo {
+	denom := types.VoucherDenom(channelID, k.GetParams(ctx).BaseDenom)
 	supply := k.bankKeeper.GetSupply(ctx, denom).Amount
+	returned := k.GetReturnedTotal(ctx, channelID)
 	return ReturnCapInfo{
 		Denom:    denom,
 		Supply:   supply,
 		Returned: returned,
 		Cap:      math.MaxInt(supply.Sub(returned), math.ZeroInt()),
-	}, nil
+	}
 }

@@ -32,11 +32,8 @@ func (k *Keeper) sendReturnPacket(ctx sdk.Context, baseDenom, channelID string, 
 // voucher for every sender, the authority included, only the module can have
 // sent such a packet. The match uses the current params, so they must not
 // change while a return is in flight (see docs/integration.md).
-func (k *Keeper) IsReturnPacket(ctx sdk.Context, sourceChannel, denomPath, sender string) (bool, error) {
-	params, err := k.GetParams(ctx)
-	if err != nil {
-		return false, err
-	}
+func (k *Keeper) IsReturnPacket(ctx sdk.Context, sourceChannel, denomPath, sender string) bool {
+	params := k.GetParams(ctx)
 	return sender == k.authority && params.IsNobleChannel(sourceChannel) &&
-		denomPath == types.VoucherPath(sourceChannel, params.BaseDenom), nil
+		denomPath == types.VoucherPath(sourceChannel, params.BaseDenom)
 }

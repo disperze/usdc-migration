@@ -112,8 +112,7 @@ func (s *MiddlewareTestSuite) fundNobleSender(amt sdkmath.Int) {
 }
 
 func (s *MiddlewareTestSuite) setParams(update func(*types.Params)) {
-	p, err := s.keeper().GetParams(s.chainA.GetContext())
-	s.Require().NoError(err)
+	p := s.keeper().GetParams(s.chainA.GetContext())
 	update(&p)
 	s.Require().NoError(s.keeper().Params.Set(s.chainA.GetContext(), p))
 	s.coordinator.CommitBlock(s.chainA)
@@ -160,9 +159,7 @@ func (s *MiddlewareTestSuite) returnToNoble(amount sdkmath.Int, receiver sdk.Acc
 }
 
 func (s *MiddlewareTestSuite) returnedTotal() sdkmath.Int {
-	amt, err := s.keeper().GetReturnedTotal(s.chainA.GetContext(), s.pathAB.EndpointA.ChannelID)
-	s.Require().NoError(err)
-	return amt
+	return s.keeper().GetReturnedTotal(s.chainA.GetContext(), s.pathAB.EndpointA.ChannelID)
 }
 
 func (s *MiddlewareTestSuite) requireErrorAck(ack []byte) {
@@ -342,8 +339,7 @@ func (s *MiddlewareTestSuite) TestReturnToNobleDrainsEscrowAboveSupply() {
 	s.Require().Equal(all, s.balance(s.chainB, s.multisig, usdc))
 	s.requireVoucherUntouched()
 
-	info, err := s.keeper().ReturnCap(s.chainA.GetContext(), s.pathAB.EndpointA.ChannelID)
-	s.Require().NoError(err)
+	info := s.keeper().ReturnCap(s.chainA.GetContext(), s.pathAB.EndpointA.ChannelID)
 	s.Require().Equal(all, info.Returned)
 	s.Require().True(info.Cap.IsZero())
 

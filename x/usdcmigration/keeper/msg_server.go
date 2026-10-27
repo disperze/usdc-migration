@@ -55,18 +55,12 @@ func (m msgServer) ReturnToNoble(goCtx context.Context, msg *types.MsgReturnToNo
 	}
 
 	ctx := sdk.UnwrapSDKContext(goCtx)
-	params, err := m.GetParams(ctx)
-	if err != nil {
-		return nil, err
-	}
+	params := m.GetParams(ctx)
 	if !params.IsNobleChannel(msg.ChannelId) {
 		return nil, errorsmod.Wrapf(types.ErrUnknownChannel, "%s not in %v", msg.ChannelId, params.NobleChannels)
 	}
 
-	info, err := m.ReturnCap(ctx, msg.ChannelId)
-	if err != nil {
-		return nil, err
-	}
+	info := m.ReturnCap(ctx, msg.ChannelId)
 
 	// Zero returns the remaining cap. An explicit amount is not limited by the
 	// cap, so gov can release the whole Noble escrow when it holds more than

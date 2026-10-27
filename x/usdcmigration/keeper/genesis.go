@@ -26,14 +26,10 @@ func (k *Keeper) InitGenesis(ctx context.Context, gs types.GenesisState) error {
 
 // ExportGenesis exports the module state.
 func (k *Keeper) ExportGenesis(ctx context.Context) (*types.GenesisState, error) {
-	params, err := k.GetParams(ctx)
-	if err != nil {
-		return nil, err
-	}
 	gs := types.DefaultGenesis()
-	gs.Params = params
+	gs.Params = k.GetParams(ctx)
 
-	err = k.ReturnedTotals.Walk(ctx, nil, func(channelID string, amount math.Int) (bool, error) {
+	err := k.ReturnedTotals.Walk(ctx, nil, func(channelID string, amount math.Int) (bool, error) {
 		gs.ReturnedTotals = append(gs.ReturnedTotals, types.ReturnedTotal{ChannelId: channelID, Amount: amount})
 		return false, nil
 	})
