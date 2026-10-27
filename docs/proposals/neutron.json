@@ -1,0 +1,41 @@
+{
+  "messages": [
+    {
+      "@type": "/cosmwasm.wasm.v1.MsgExecuteContract",
+      "sender": "neutron10d07y265gmmuvt4z0w9aw880jnsr700j7a68v5",
+      "contract": "neutron15aqgplxcavqhurr0g5wwtdw6025dknkqwkfh0n46gp2qjl6236cs2yd3nl",
+      "msg": {
+        "remove_path": {
+          "channel_id": "any",
+          "denom": "ibc/B559A80D62249C8AA07A380E2A2BEA6E5CA9A6F079C912C3A9E9B494105E4F81"
+        }
+      },
+      "funds": []
+    },
+    {
+      "@type": "/usdcmigration.v1.MsgReturnToNoble",
+      "authority": "neutron10d07y265gmmuvt4z0w9aw880jnsr700j7a68v5",
+      "channel_id": "channel-30",
+      "receiver": "noble1REPLACE_WITH_MULTISIG",
+      "amount": "2058476260015",
+      "timeout_seconds": "86400",
+      "memo": ""
+    },
+    {
+      "@type": "/cosmos.bank.v1beta1.MsgSetSendEnabled",
+      "authority": "neutron10d07y265gmmuvt4z0w9aw880jnsr700j7a68v5",
+      "send_enabled": [
+        {
+          "denom": "ibc/B559A80D62249C8AA07A380E2A2BEA6E5CA9A6F079C912C3A9E9B494105E4F81",
+          "enabled": false
+        }
+      ],
+      "use_default_for": []
+    }
+  ],
+  "metadata": "ipfs://REPLACE_WITH_METADATA_CID",
+  "deposit": "300000000000untrn",
+  "title": "Return Noble USDC escrow to the migration multisig and freeze the Neutron USDC voucher",
+  "summary": "Circle ends USDC support on Noble; the full pause is on 2027-01-12. This proposal first removes the IBC rate limit on the Noble USDC voucher (ibc/B559A80D62249C8AA07A380E2A2BEA6E5CA9A6F079C912C3A9E9B494105E4F81, path channel any), whose send quota of 35% a day would reject the single return packet. It then returns Noble's full USDC escrow for Neutron (2,058,476.260015 USDC, Noble channel-18) to the multisig noble1REPLACE_WITH_MULTISIG over channel-30 (MsgReturnToNoble with that explicit amount), covering all Noble USDC vouchers still in circulation on Neutron. In the same execution it disables bank sends of the voucher, so the holder snapshot is the height emitted by the usdcmigration_return_to_noble event. Holders are repaid off-chain from that snapshot: REPLACE_WITH_REPAYMENT_PLAN_URL.",
+  "expedited": false
+}

@@ -39,12 +39,12 @@ cap = bank supply(voucher) − returned_total(channel)
 
 | Branch | Go module | Cosmos SDK | ibc-go | Chains |
 |---|---|---|---|---|
-| `main` | `github.com/giansalex/usdc-migration/v10` | ≥ v0.53.4 | v10 (≥ v10.5.0) | Agoric, Xion, Coreum, Juno |
-| `release/v8.x` | `github.com/giansalex/usdc-migration/v8` | ≥ v0.50.10 | v8 (≥ v8.7.0) | Terra2, Haqq, Impacthub (ixo), Archway |
+| `master` | `github.com/disperze/usdc-migration/v10` | ≥ v0.53.4 | v10 (≥ v10.5.0) | Agoric, Xion, Coreum, Neutron, Juno |
+| `release/v8.x` | `github.com/disperze/usdc-migration/v8` | ≥ v0.50.10 | v8 (≥ v8.7.0) | Terra2, Haqq, Impacthub (ixo), Archway |
 
 Only the ibc-go-specific files differ between the two lines: the middleware, the ICS4 wrapper and the expected keepers. The v8 line has no IBC v2 wrapper.
 
-> The return packet is on `main` only for now. `release/v8.x` still uses mint-and-return until it is ported; the port needs the transfer channel capability to send the packet.
+Releases are tagged `v10.x.y` on `master` and `v8.x.y` on `release/v8.x`. See [CHANGELOG.md](CHANGELOG.md).
 
 ## Messages, queries, events
 
@@ -149,3 +149,7 @@ bash scripts/protocgen.sh   # needs buf, protoc-gen-gocosmos, protoc-gen-grpc-ga
   - partial returns and the cap;
   - error-ack and timeout refunds with nothing minted, then a retry.
 - `testing/simapp`: the ibc-go v10.5.0 simapp with this module wired in.
+
+## License
+
+Apache License 2.0. See [LICENSE](LICENSE).

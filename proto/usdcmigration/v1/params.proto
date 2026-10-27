@@ -3,7 +3,7 @@ package usdcmigration.v1;
 
 import "amino/amino.proto";
 
-option go_package = "github.com/giansalex/usdc-migration/v10/x/usdcmigration/types";
+option go_package = "github.com/disperze/usdc-migration/v10/x/usdcmigration/types";
 
 // Params defines the parameters of the usdcmigration module.
 message Params {

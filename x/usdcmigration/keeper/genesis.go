@@ -5,7 +5,7 @@ import (
 
 	"cosmossdk.io/math"
 
-	"github.com/giansalex/usdc-migration/v10/x/usdcmigration/types"
+	"github.com/disperze/usdc-migration/v10/x/usdcmigration/types"
 )
 
 // InitGenesis initializes the module state from genesis.
@@ -25,7 +25,7 @@ func (k *Keeper) InitGenesis(ctx context.Context, gs types.GenesisState) error {
 }
 
 // ExportGenesis exports the module state.
-func (k *Keeper) ExportGenesis(ctx context.Context) (*types.GenesisState, error) {
+func (k *Keeper) ExportGenesis(ctx context.Context) (_ *types.GenesisState, err error) {
 	gs := types.DefaultGenesis()
 	gs.Params = k.GetParams(ctx)
 

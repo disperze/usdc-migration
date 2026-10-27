@@ -11,8 +11,8 @@ import (
 	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
 	"github.com/cosmos/ibc-go/v10/modules/core/api"
 
-	"github.com/giansalex/usdc-migration/v10/x/usdcmigration/keeper"
-	"github.com/giansalex/usdc-migration/v10/x/usdcmigration/types"
+	"github.com/disperze/usdc-migration/v10/x/usdcmigration/keeper"
+	"github.com/disperze/usdc-migration/v10/x/usdcmigration/types"
 )
 
 var (
