@@ -61,6 +61,11 @@ usdcmigration.NewAppModule(appCodec, app.UsdcMigrationKeeper),
   - With our keeper fixed in the constructor, every copy points at the same `*Keeper`. Re-pointing its inner wrapper later then reaches all of them.
   - `MsgReturnToNoble` sends through that inner wrapper, so a late `WithICS4Wrapper(cbStack)` must be kept. Otherwise returns would skip `cbStack`.
 - **No module account permissions and no blocked-address changes.** The return builds the ICS20 packet itself, so nothing is minted, burned or sent from the gov account. Gov may stay in the bank keeper's blocked addresses.
+- **Do not change params while a return is in flight.** <a id="do-not-change-params-while-a-return-is-in-flight"></a>
+  - After `MsgReturnToNoble` executes, do not submit `MsgUpdateParams` until the return packet has settled: Noble acknowledged it, or it was refunded (`usdcmigration_return_refunded` event after an error ack or timeout).
+  - This applies in particular to `noble_channels`, `base_denom` and `send_block_enabled`. Acks and timeouts are recognised as return packets by comparing them with the **current** params (sender is gov, channel is a Noble channel, denom is the voucher). If a param changed in between, an error ack or timeout would no longer be recognised and would reach the transfer module, which refunds gov by minting the voucher back, unbacked.
+  - Keep `send_block_enabled = true` for the whole migration. It is what guarantees that gov cannot send the voucher any other way, so every gov voucher packet on a Noble channel is a return.
+  - In practice a return settles within minutes and a gov proposal takes a full voting period, so this only needs care if a param-change proposal is already in voting when the return executes.
 - **Leave the return memo empty.** The packet still goes through the ICS4 wrappers below this keeper, so a callbacks key in the memo would trigger a callbacks middleware there.
 
 **Upgrade handler:**

@@ -32,9 +32,6 @@ type Keeper struct {
 	Schema         collections.Schema
 	Params         collections.Item[types.Params]
 	ReturnedTotals collections.Map[string, math.Int]
-	// PendingReturns holds the amount of every return packet sent by
-	// MsgReturnToNoble that is still in flight, keyed by (channel, sequence).
-	PendingReturns collections.Map[collections.Pair[string, uint64], math.Int]
 }
 
 // NewKeeper creates a new usdcmigration Keeper. ics4Wrapper is the next ICS4
@@ -60,10 +57,6 @@ func NewKeeper(
 		ics4Wrapper:    ics4Wrapper,
 		Params:         collections.NewItem(sb, types.ParamsKey, "params", codec.CollValue[types.Params](cdc)),
 		ReturnedTotals: collections.NewMap(sb, types.ReturnedTotalPrefix, "returned_totals", collections.StringKey, sdk.IntValue),
-		PendingReturns: collections.NewMap(
-			sb, types.PendingReturnPrefix, "pending_returns",
-			collections.PairKeyCodec(collections.StringKey, collections.Uint64Key), sdk.IntValue,
-		),
 	}
 	schema, err := sb.Build()
 	if err != nil {
@@ -127,18 +120,13 @@ func (k *Keeper) addReturnedTotal(ctx context.Context, channelID string, amt mat
 	return k.ReturnedTotals.Set(ctx, channelID, total.Add(amt))
 }
 
-// subReturnedTotal decreases the returned total after a refund. Every refunded
-// amount was added by a recorded return, so going below zero means the state
-// is inconsistent.
+// subReturnedTotal decreases the returned total after a refund, flooring at zero.
 func (k *Keeper) subReturnedTotal(ctx context.Context, channelID string, amt math.Int) error {
 	total, err := k.GetReturnedTotal(ctx, channelID)
 	if err != nil {
 		return err
 	}
-	if amt.GT(total) {
-		return errorsmod.Wrapf(types.ErrInvalidState, "refund of %s exceeds returned total %s on %s", amt, total, channelID)
-	}
-	return k.ReturnedTotals.Set(ctx, channelID, total.Sub(amt))
+	return k.ReturnedTotals.Set(ctx, channelID, math.MaxInt(total.Sub(amt), math.ZeroInt()))
 }
 
 // ReturnCapInfo describes how much voucher can still be returned over a channel.

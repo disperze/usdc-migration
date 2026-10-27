@@ -11,7 +11,6 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
 	porttypes "github.com/cosmos/ibc-go/v10/modules/core/05-port/types"
-	ibcerrors "github.com/cosmos/ibc-go/v10/modules/core/errors"
 	"github.com/cosmos/ibc-go/v10/modules/core/exported"
 
 	"github.com/giansalex/usdc-migration/v10/x/usdcmigration/keeper"
@@ -85,25 +84,18 @@ func (im IBCMiddleware) OnRecvPacket(ctx sdk.Context, channelVersion string, pac
 }
 
 // OnAcknowledgementPacket releases the returned total when a return to Noble
-// is answered with an error acknowledgement. Return packets are matched by
-// (channel, sequence) as recorded by MsgReturnToNoble, so the match does not
-// depend on the current params. The error ack of a return packet never
-// reaches the transfer app: the return burned nothing, and the app's refund
-// would mint the voucher to the authority.
+// is answered with an error acknowledgement. The error ack of a return packet
+// never reaches the transfer app: the return burned nothing, and the app's
+// refund would mint the voucher to the authority.
 func (im IBCMiddleware) OnAcknowledgementPacket(ctx sdk.Context, channelVersion string, packet channeltypes.Packet, acknowledgement []byte, relayer sdk.AccAddress) error {
-	if packet.SourcePort == types.TransferPortID {
-		amount, found, err := im.keeper.TakePendingReturn(ctx, packet.SourceChannel, packet.Sequence)
-		if err != nil {
-			return err
-		}
-		if found {
-			var ack channeltypes.Acknowledgement
-			if err := transfertypes.ModuleCdc.UnmarshalJSON(acknowledgement, &ack); err != nil {
-				return errorsmod.Wrapf(ibcerrors.ErrUnknownRequest, "cannot unmarshal ICS20 acknowledgement: %v", err)
-			}
-			if !ack.Success() {
-				return im.keeper.RefundReturn(ctx, packet.SourceChannel, packet.Sequence, amount, types.RefundReasonErrorAck)
-			}
+	data, isReturn, err := im.returnPacketData(ctx, packet)
+	if err != nil {
+		return err
+	}
+	if isReturn {
+		var ack channeltypes.Acknowledgement
+		if err := transfertypes.ModuleCdc.UnmarshalJSON(acknowledgement, &ack); err == nil && !ack.Success() {
+			return im.keeper.OnReturnRefunded(ctx, packet.SourceChannel, packet.Sequence, data.Denom, data.Sender, data.Amount, types.RefundReasonErrorAck)
 		}
 	}
 	return im.app.OnAcknowledgementPacket(ctx, channelVersion, packet, acknowledgement, relayer)
@@ -113,16 +105,28 @@ func (im IBCMiddleware) OnAcknowledgementPacket(ctx sdk.Context, channelVersion 
 // out. Like an error ack, the timeout of a return packet never reaches the
 // transfer app, so no voucher is minted back.
 func (im IBCMiddleware) OnTimeoutPacket(ctx sdk.Context, channelVersion string, packet channeltypes.Packet, relayer sdk.AccAddress) error {
-	if packet.SourcePort == types.TransferPortID {
-		amount, found, err := im.keeper.TakePendingReturn(ctx, packet.SourceChannel, packet.Sequence)
-		if err != nil {
-			return err
-		}
-		if found {
-			return im.keeper.RefundReturn(ctx, packet.SourceChannel, packet.Sequence, amount, types.RefundReasonTimeout)
-		}
+	data, isReturn, err := im.returnPacketData(ctx, packet)
+	if err != nil {
+		return err
+	}
+	if isReturn {
+		return im.keeper.OnReturnRefunded(ctx, packet.SourceChannel, packet.Sequence, data.Denom, data.Sender, data.Amount, types.RefundReasonTimeout)
 	}
 	return im.app.OnTimeoutPacket(ctx, channelVersion, packet, relayer)
+}
+
+// returnPacketData decodes the ICS20 data of packet and reports whether it is
+// a return packet sent by MsgReturnToNoble.
+func (im IBCMiddleware) returnPacketData(ctx sdk.Context, packet channeltypes.Packet) (transfertypes.FungibleTokenPacketData, bool, error) {
+	var data transfertypes.FungibleTokenPacketData
+	if packet.SourcePort != types.TransferPortID {
+		return data, false, nil
+	}
+	if err := json.Unmarshal(packet.GetData(), &data); err != nil {
+		return data, false, nil
+	}
+	isReturn, err := im.keeper.IsReturnPacket(ctx, packet.SourceChannel, data.Denom, data.Sender)
+	return data, isReturn, err
 }
 
 // SendPacket implements porttypes.ICS4Wrapper.

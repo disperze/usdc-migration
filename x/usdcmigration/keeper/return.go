@@ -26,3 +26,17 @@ func (k *Keeper) sendReturnPacket(ctx sdk.Context, baseDenom, channelID string, 
 	}
 	return k.ics4Wrapper.SendPacket(ctx, types.TransferPortID, channelID, clienttypes.ZeroHeight(), timeoutTimestamp, data.GetBytes())
 }
+
+// IsReturnPacket reports whether an ICS20 packet sent over sourceChannel is a
+// return to Noble built by MsgReturnToNoble. Since the send block rejects the
+// voucher for every sender, the authority included, only the module can have
+// sent such a packet. The match uses the current params, so they must not
+// change while a return is in flight (see docs/integration.md).
+func (k *Keeper) IsReturnPacket(ctx sdk.Context, sourceChannel, denomPath, sender string) (bool, error) {
+	params, err := k.GetParams(ctx)
+	if err != nil {
+		return false, err
+	}
+	return sender == k.authority && params.IsNobleChannel(sourceChannel) &&
+		denomPath == types.VoucherPath(sourceChannel, params.BaseDenom), nil
+}

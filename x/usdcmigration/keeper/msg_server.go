@@ -4,7 +4,6 @@ import (
 	"context"
 	"strconv"
 
-	"cosmossdk.io/collections"
 	errorsmod "cosmossdk.io/errors"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -92,11 +91,6 @@ func (m msgServer) ReturnToNoble(goCtx context.Context, msg *types.MsgReturnToNo
 		return nil, err
 	}
 
-	// Record the packet so its ack or timeout is matched by (channel,
-	// sequence), whatever the params are by then.
-	if err := m.PendingReturns.Set(ctx, collections.Join(msg.ChannelId, sequence), amount); err != nil {
-		return nil, err
-	}
 	if err := m.addReturnedTotal(ctx, msg.ChannelId, amount); err != nil {
 		return nil, err
 	}

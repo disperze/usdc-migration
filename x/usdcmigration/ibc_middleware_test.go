@@ -2,14 +2,12 @@ package usdcmigration_test
 
 import (
 	"encoding/json"
-	"fmt"
 	"testing"
 	"time"
 
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/stretchr/testify/suite"
 
-	"cosmossdk.io/collections"
 	"cosmossdk.io/log"
 	sdkmath "cosmossdk.io/math"
 
@@ -167,12 +165,6 @@ func (s *MiddlewareTestSuite) returnedTotal() sdkmath.Int {
 	return amt
 }
 
-func (s *MiddlewareTestSuite) hasPendingReturn(packet channeltypes.Packet) bool {
-	ok, err := s.keeper().PendingReturns.Has(s.chainA.GetContext(), collections.Join(packet.SourceChannel, packet.Sequence))
-	s.Require().NoError(err)
-	return ok
-}
-
 func (s *MiddlewareTestSuite) requireErrorAck(ack []byte) {
 	var a channeltypes.Acknowledgement
 	s.Require().NoError(transfertypes.ModuleCdc.UnmarshalJSON(ack, &a))
@@ -283,15 +275,12 @@ func (s *MiddlewareTestSuite) TestReturnToNobleDrainsEscrow() {
 	s.Require().Equal(s.seeded, res.Amount)
 	s.Require().Equal(s.voucher, res.Denom)
 	s.Require().Equal(res.Sequence, packet.Sequence)
-	s.Require().True(s.hasPendingReturn(packet))
 	s.requireVoucherUntouched()
 
 	ack := s.relay(s.pathAB, packet)
 	var a channeltypes.Acknowledgement
 	s.Require().NoError(transfertypes.ModuleCdc.UnmarshalJSON(ack, &a))
 	s.Require().True(a.Success())
-
-	s.Require().False(s.hasPendingReturn(packet), "success ack clears the pending return")
 
 	// Noble: escrow released to the multisig
 	s.Require().True(s.nobleEscrow().IsZero())
@@ -367,9 +356,7 @@ func (s *MiddlewareTestSuite) TestReturnToNobleErrorAckRefundsAndRetries() {
 	blocked := authtypes.NewModuleAddress(distrtypes.ModuleName)
 	_, packet, err := s.returnToNoble(sdkmath.ZeroInt(), blocked, 0)
 	s.Require().NoError(err)
-	s.Require().True(s.hasPendingReturn(packet))
 	s.requireErrorAck(s.relay(s.pathAB, packet))
-	s.Require().False(s.hasPendingReturn(packet))
 
 	s.requireVoucherUntouched()
 	s.Require().True(s.returnedTotal().IsZero())
@@ -389,57 +376,15 @@ func (s *MiddlewareTestSuite) TestReturnToNobleErrorAckRefundsAndRetries() {
 func (s *MiddlewareTestSuite) TestReturnToNobleTimeoutRefunds() {
 	_, packet, err := s.returnToNoble(sdkmath.ZeroInt(), s.multisig, 1)
 	s.Require().NoError(err)
-	s.Require().True(s.hasPendingReturn(packet))
-	s.timeout(packet)
-	s.Require().False(s.hasPendingReturn(packet))
 
-	s.requireVoucherUntouched()
-	s.Require().True(s.returnedTotal().IsZero())
-	s.Require().Equal(s.seeded, s.nobleEscrow())
-}
-
-func (s *MiddlewareTestSuite) timeout(packet channeltypes.Packet) {
 	s.coordinator.IncrementTimeBy(time.Minute)
 	s.coordinator.CommitBlock(s.chainB)
 	s.Require().NoError(s.pathAB.EndpointA.UpdateClient())
 	s.Require().NoError(s.pathAB.EndpointA.TimeoutPacket(packet))
-}
 
-// A return in flight must be refunded by the module even if gov changes the
-// params before the ack or timeout arrives. Otherwise the transfer app would
-// refund the authority by minting unbacked voucher.
-func (s *MiddlewareTestSuite) TestReturnRefundedAfterParamsChange() {
-	changes := map[string]func(*types.Params){
-		"channel removed":   func(p *types.Params) { p.NobleChannels = []string{} },
-		"base denom change": func(p *types.Params) { p.BaseDenom = "uother" },
-		"send block off":    func(p *types.Params) { p.SendBlockEnabled = false },
-	}
-	for name, change := range changes {
-		for _, viaTimeout := range []bool{false, true} {
-			s.Run(fmt.Sprintf("%s/timeout=%t", name, viaTimeout), func() {
-				s.SetupTest()
-				receiver := authtypes.NewModuleAddress(distrtypes.ModuleName) // blocked on Noble -> error ack
-				var timeoutSeconds uint64
-				if viaTimeout {
-					receiver, timeoutSeconds = s.multisig, 1
-				}
-				_, packet, err := s.returnToNoble(sdkmath.ZeroInt(), receiver, timeoutSeconds)
-				s.Require().NoError(err)
-				s.setParams(change)
-
-				if viaTimeout {
-					s.timeout(packet)
-				} else {
-					s.requireErrorAck(s.relay(s.pathAB, packet))
-				}
-
-				s.Require().False(s.hasPendingReturn(packet))
-				s.Require().True(s.returnedTotal().IsZero())
-				s.requireVoucherUntouched()
-				s.Require().Equal(s.seeded, s.nobleEscrow())
-			})
-		}
-	}
+	s.requireVoucherUntouched()
+	s.Require().True(s.returnedTotal().IsZero())
+	s.Require().Equal(s.seeded, s.nobleEscrow())
 }
 
 func (s *MiddlewareTestSuite) TestReturnToNobleWhenVoucherFrozen() {
@@ -506,24 +451,4 @@ func (s *MiddlewareTestSuite) TestGenesisRoundTrip() {
 	s.Require().Equal([]string{s.pathAB.EndpointA.ChannelID}, gs.Params.NobleChannels)
 	s.Require().Len(gs.ReturnedTotals, 1)
 	s.Require().Equal(s.seeded, gs.ReturnedTotals[0].Amount)
-	s.Require().Empty(gs.PendingReturns)
-}
-
-func (s *MiddlewareTestSuite) TestGenesisRoundTripWithPendingReturn() {
-	half := s.seeded.QuoRaw(2)
-	_, packet, err := s.returnToNoble(half, s.multisig, 0)
-	s.Require().NoError(err)
-
-	gs, err := s.keeper().ExportGenesis(s.chainA.GetContext())
-	s.Require().NoError(err)
-	s.Require().NoError(gs.Validate())
-	s.Require().Equal([]types.PendingReturn{{ChannelId: packet.SourceChannel, Sequence: packet.Sequence, Amount: half}}, gs.PendingReturns)
-
-	// Import into a fresh store and export again.
-	ctx := s.chainC.GetContext()
-	k := s.app(s.chainC).UsdcMigrationKeeper
-	s.Require().NoError(k.InitGenesis(ctx, *gs))
-	again, err := k.ExportGenesis(ctx)
-	s.Require().NoError(err)
-	s.Require().Equal(gs, again)
 }

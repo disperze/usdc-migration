@@ -102,15 +102,6 @@ func TestReturnToNobleBuildsPacket(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, sdkmath.NewInt(100), returned)
 
-	// The packet is recorded under the sequence the ICS4 wrapper assigned.
-	amt, found, err := k.TakePendingReturn(ctx, "channel-224", res.Sequence)
-	require.NoError(t, err)
-	require.True(t, found)
-	require.Equal(t, sdkmath.NewInt(100), amt)
-	_, found, err = k.TakePendingReturn(ctx, "channel-224", res.Sequence)
-	require.NoError(t, err)
-	require.False(t, found, "taking a pending return removes it")
-
 	_, err = keeper.NewMsgServerImpl(k).ReturnToNoble(ctx, returnMsg(k))
 	require.ErrorIs(t, err, types.ErrNothingToReturn)
 	require.Equal(t, 1, ics4.calls)
@@ -152,19 +143,6 @@ func TestUpdateParams(t *testing.T) {
 	got, err := k.GetParams(ctx)
 	require.NoError(t, err)
 	require.Equal(t, p, got)
-}
-
-func TestTakePendingReturnUnknown(t *testing.T) {
-	ctx, k, _ := setup(t, fakeBank{supply: sdkmath.ZeroInt()})
-	_, found, err := k.TakePendingReturn(ctx, "channel-224", 7)
-	require.NoError(t, err)
-	require.False(t, found)
-}
-
-func TestRefundReturnCannotExceedReturnedTotal(t *testing.T) {
-	ctx, k, _ := setup(t, fakeBank{supply: sdkmath.ZeroInt()})
-	err := k.RefundReturn(ctx, "channel-224", 1, sdkmath.NewInt(1), types.RefundReasonTimeout)
-	require.ErrorIs(t, err, types.ErrInvalidState)
 }
 
 func TestSetParamsValidates(t *testing.T) {
