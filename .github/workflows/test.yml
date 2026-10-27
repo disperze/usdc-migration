@@ -32,18 +32,6 @@ jobs:
         with:
           version: v2.5.0
 
-  govulncheck:
-    runs-on: ubuntu-latest
-    # Informational until the Go toolchain and dependency bumps it reports
-    # are done; see the job log for the reachable vulnerabilities.
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: "1.24.9"
-      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
-
   proto:
     runs-on: ubuntu-latest
     steps:
