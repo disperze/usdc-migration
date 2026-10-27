@@ -63,42 +63,27 @@ func (m msgServer) ReturnToNoble(goCtx context.Context, msg *types.MsgReturnToNo
 		return nil, errorsmod.Wrapf(types.ErrUnknownChannel, "%s not in %v", msg.ChannelId, params.NobleChannels)
 	}
 
-	info := m.ReturnCap(ctx, msg.ChannelId)
-
-	// Zero returns the remaining cap. An explicit amount is not limited by the
-	// cap, so gov can release the whole Noble escrow when it holds more than
-	// the voucher supply (e.g. USDC sent straight to the escrow address).
-	// Noble enforces the escrow balance: a larger amount gets an error ack and
-	// the returned total is released again.
-	amount := msg.Amount
-	if amount.IsZero() {
-		amount = info.Cap
-	}
-	if !amount.IsPositive() {
-		return nil, types.ErrNothingToReturn
-	}
-
-	sequence, err := m.sendReturnPacket(ctx, msg, params.BaseDenom, amount)
+	// Noble enforces its escrow balance for the channel: a larger amount gets
+	// an error ack, so nothing is tracked here.
+	sequence, err := m.sendReturnPacket(ctx, msg, params.BaseDenom)
 	if err != nil {
 		return nil, err
 	}
-	if err := m.addReturnedTotal(ctx, msg.ChannelId, amount); err != nil {
-		return nil, err
-	}
+	denom := types.VoucherDenom(msg.ChannelId, params.BaseDenom)
 
 	ctx.EventManager().EmitEvent(sdk.NewEvent(
 		types.EventTypeReturnToNoble,
 		sdk.NewAttribute(types.AttributeKeyHeight, strconv.FormatInt(ctx.BlockHeight(), 10)),
 		sdk.NewAttribute(types.AttributeKeyChannelID, msg.ChannelId),
-		sdk.NewAttribute(types.AttributeKeyDenom, info.Denom),
-		sdk.NewAttribute(types.AttributeKeyAmount, amount.String()),
+		sdk.NewAttribute(types.AttributeKeyDenom, denom),
+		sdk.NewAttribute(types.AttributeKeyAmount, msg.Amount.String()),
 		sdk.NewAttribute(types.AttributeKeyReceiver, msg.Receiver),
 		sdk.NewAttribute(types.AttributeKeySequence, strconv.FormatUint(sequence, 10)),
 	))
 
 	return &types.MsgReturnToNobleResponse{
 		Sequence: sequence,
-		Denom:    info.Denom,
-		Amount:   amount,
+		Denom:    denom,
+		Amount:   msg.Amount,
 	}, nil
 }

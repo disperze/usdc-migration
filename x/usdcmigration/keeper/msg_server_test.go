@@ -1,7 +1,6 @@
 package keeper_test
 
 import (
-	"context"
 	"encoding/json"
 	"testing"
 
@@ -25,12 +24,6 @@ import (
 	"github.com/disperze/usdc-migration/v10/x/usdcmigration/types"
 )
 
-type fakeBank struct {
-	supply sdkmath.Int
-}
-
-func (b fakeBank) GetSupply(context.Context, string) sdk.Coin { return sdk.NewCoin("uusdc", b.supply) }
-
 // fakeICS4 records the packets handed to the next ICS4 wrapper.
 type fakeICS4 struct {
 	port, channel string
@@ -53,14 +46,14 @@ func (w *fakeICS4) GetAppVersion(sdk.Context, string, string) (string, bool) {
 	return transfertypes.V1, true
 }
 
-func setup(t *testing.T, bank fakeBank) (sdk.Context, *keeper.Keeper, *fakeICS4) {
+func setup(t *testing.T) (sdk.Context, *keeper.Keeper, *fakeICS4) {
 	t.Helper()
 	key := storetypes.NewKVStoreKey(types.StoreKey)
 	ctx := testutil.DefaultContextWithDB(t, key, storetypes.NewTransientStoreKey("t")).Ctx
 	cdc := moduletestutil.MakeTestEncodingConfig().Codec
 
 	ics4 := &fakeICS4{}
-	k := keeper.NewKeeper(cdc, runtime.NewKVStoreService(key), bank, ics4, authtypes.NewModuleAddress(govtypes.ModuleName).String())
+	k := keeper.NewKeeper(cdc, runtime.NewKVStoreService(key), ics4, authtypes.NewModuleAddress(govtypes.ModuleName).String())
 
 	p := types.DefaultParams()
 	p.NobleChannels = []string{"channel-224"}
@@ -73,12 +66,12 @@ func returnMsg(k *keeper.Keeper) *types.MsgReturnToNoble {
 		Authority: k.GetAuthority(),
 		ChannelId: "channel-224",
 		Receiver:  sdk.MustBech32ifyAddressBytes(types.NobleBech32Prefix, []byte("noble-multisig______")),
-		Amount:    sdkmath.ZeroInt(),
+		Amount:    sdkmath.NewInt(100),
 	}
 }
 
 func TestReturnToNobleBuildsPacket(t *testing.T) {
-	ctx, k, ics4 := setup(t, fakeBank{supply: sdkmath.NewInt(100)})
+	ctx, k, ics4 := setup(t)
 	msg := returnMsg(k)
 	msg.Memo = "migration"
 
@@ -97,22 +90,19 @@ func TestReturnToNobleBuildsPacket(t *testing.T) {
 	require.Equal(t, transfertypes.NewFungibleTokenPacketData(
 		"transfer/channel-224/uusdc", "100", k.GetAuthority(), msg.Receiver, "migration",
 	), data)
-
-	require.Equal(t, sdkmath.NewInt(100), k.GetReturnedTotal(ctx, "channel-224"))
-	_, err = keeper.NewMsgServerImpl(k).ReturnToNoble(ctx, returnMsg(k))
-	require.ErrorIs(t, err, types.ErrNothingToReturn)
-	require.Equal(t, 1, ics4.calls)
 }
 
-func TestReturnToNobleNothingToReturn(t *testing.T) {
-	ctx, k, ics4 := setup(t, fakeBank{supply: sdkmath.ZeroInt()})
-	_, err := keeper.NewMsgServerImpl(k).ReturnToNoble(ctx, returnMsg(k))
-	require.ErrorIs(t, err, types.ErrNothingToReturn)
+func TestReturnToNobleRequiresAmount(t *testing.T) {
+	ctx, k, ics4 := setup(t)
+	msg := returnMsg(k)
+	msg.Amount = sdkmath.ZeroInt()
+	_, err := keeper.NewMsgServerImpl(k).ReturnToNoble(ctx, msg)
+	require.ErrorIs(t, err, types.ErrInvalidAmount)
 	require.Zero(t, ics4.calls)
 }
 
 func TestSendPacketBlocksVoucherForAuthority(t *testing.T) {
-	ctx, k, ics4 := setup(t, fakeBank{supply: sdkmath.NewInt(100)})
+	ctx, k, ics4 := setup(t)
 	data := transfertypes.NewFungibleTokenPacketData("transfer/channel-224/uusdc", "1", k.GetAuthority(), "noble1x", "")
 	_, err := k.SendPacket(ctx, types.TransferPortID, "channel-224", clienttypes.ZeroHeight(), 1, data.GetBytes())
 	require.ErrorIs(t, err, types.ErrSendBlocked)
@@ -120,7 +110,7 @@ func TestSendPacketBlocksVoucherForAuthority(t *testing.T) {
 }
 
 func TestUpdateParams(t *testing.T) {
-	ctx, k, _ := setup(t, fakeBank{supply: sdkmath.ZeroInt()})
+	ctx, k, _ := setup(t)
 	srv := keeper.NewMsgServerImpl(k)
 
 	p := types.DefaultParams()
@@ -141,7 +131,7 @@ func TestUpdateParams(t *testing.T) {
 }
 
 func TestSetParamsValidates(t *testing.T) {
-	ctx, k, _ := setup(t, fakeBank{supply: sdkmath.ZeroInt()})
+	ctx, k, _ := setup(t)
 	p := types.DefaultParams()
 	p.NobleChannels = []string{"channel-1", "channel-1"}
 	require.ErrorIs(t, k.SetParams(ctx, p), types.ErrInvalidParams)

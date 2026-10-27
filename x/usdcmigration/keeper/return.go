@@ -3,8 +3,6 @@ package keeper
 import (
 	"time"
 
-	"cosmossdk.io/math"
-
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
@@ -13,15 +11,15 @@ import (
 	"github.com/disperze/usdc-migration/v10/x/usdcmigration/types"
 )
 
-// sendReturnPacket builds the ICS20 packet of msg that returns amount of the
-// Noble voucher and hands it to the next ICS4 wrapper. Unlike a transfer
+// sendReturnPacket builds the ICS20 packet of msg that returns the Noble
+// voucher and hands it to the next ICS4 wrapper. Unlike a transfer
 // keeper send, no voucher is burned from, or escrowed for, any account: Noble
 // releases the matching USDC from the channel escrow to the receiver. The
 // packet is sent below this keeper's own SendPacket, so the send block (which
 // also covers the authority) does not apply to it.
-func (k *Keeper) sendReturnPacket(ctx sdk.Context, msg *types.MsgReturnToNoble, baseDenom string, amount math.Int) (uint64, error) {
+func (k *Keeper) sendReturnPacket(ctx sdk.Context, msg *types.MsgReturnToNoble, baseDenom string) (uint64, error) {
 	data := transfertypes.NewFungibleTokenPacketData(
-		types.VoucherPath(msg.ChannelId, baseDenom), amount.String(), k.authority, msg.Receiver, msg.Memo,
+		types.VoucherPath(msg.ChannelId, baseDenom), msg.Amount.String(), k.authority, msg.Receiver, msg.Memo,
 	)
 	if err := data.ValidateBasic(); err != nil {
 		return 0, err

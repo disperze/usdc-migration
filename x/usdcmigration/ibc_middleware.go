@@ -49,26 +49,26 @@ func (im IBCMiddleware) OnRecvPacket(ctx sdk.Context, channelVersion string, pac
 	return im.IBCModule.OnRecvPacket(ctx, channelVersion, packet, relayer)
 }
 
-// OnAcknowledgementPacket releases the returned total when a return to Noble
-// is answered with an error acknowledgement. The error ack of a return packet
-// never reaches the transfer app: the return burned nothing, and the app's
+// OnAcknowledgementPacket stops the error acknowledgement of a return to Noble
+// from reaching the transfer app: the return burned nothing, and the app's
 // refund would mint the voucher to the authority.
 func (im IBCMiddleware) OnAcknowledgementPacket(ctx sdk.Context, channelVersion string, packet channeltypes.Packet, acknowledgement []byte, relayer sdk.AccAddress) error {
 	if data, ok := im.returnPacketData(ctx, packet); ok {
 		var ack channeltypes.Acknowledgement
 		if err := transfertypes.ModuleCdc.UnmarshalJSON(acknowledgement, &ack); err == nil && !ack.Success() {
-			return im.keeper.OnReturnRefunded(ctx, packet.SourceChannel, packet.Sequence, data.Amount, types.RefundReasonErrorAck)
+			im.keeper.OnReturnRefunded(ctx, packet.SourceChannel, packet.Sequence, data.Amount, types.RefundReasonErrorAck)
+			return nil
 		}
 	}
 	return im.IBCModule.OnAcknowledgementPacket(ctx, channelVersion, packet, acknowledgement, relayer)
 }
 
-// OnTimeoutPacket releases the returned total when a return to Noble times
-// out. Like an error ack, the timeout of a return packet never reaches the
-// transfer app, so no voucher is minted back.
+// OnTimeoutPacket stops the timeout of a return to Noble from reaching the
+// transfer app, for the same reason as an error ack: no voucher is minted back.
 func (im IBCMiddleware) OnTimeoutPacket(ctx sdk.Context, channelVersion string, packet channeltypes.Packet, relayer sdk.AccAddress) error {
 	if data, ok := im.returnPacketData(ctx, packet); ok {
-		return im.keeper.OnReturnRefunded(ctx, packet.SourceChannel, packet.Sequence, data.Amount, types.RefundReasonTimeout)
+		im.keeper.OnReturnRefunded(ctx, packet.SourceChannel, packet.Sequence, data.Amount, types.RefundReasonTimeout)
+		return nil
 	}
 	return im.IBCModule.OnTimeoutPacket(ctx, channelVersion, packet, relayer)
 }

@@ -11,7 +11,8 @@ var (
 	// through the authority account.
 	// Code 7 (ErrExceedsReturnCap) is retired: an explicit return amount is
 	// limited by Noble's escrow, not by the voucher supply.
-	ErrNothingToReturn  = errorsmod.Register(ModuleName, 8, "no voucher left to return")
+	// Code 8 (ErrNothingToReturn) is retired: the return amount is required
+	// and no return cap is tracked.
 	ErrInvalidReceiver  = errorsmod.Register(ModuleName, 9, "invalid Noble receiver address")
 	ErrInvalidTimeout   = errorsmod.Register(ModuleName, 10, "invalid timeout")
 	ErrInvalidAmount    = errorsmod.Register(ModuleName, 11, "invalid amount")

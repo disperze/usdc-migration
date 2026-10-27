@@ -36,7 +36,6 @@ usdcmigrationtypes.StoreKey,
 //    MsgReturnToNoble sends its packet through this wrapper as well.
 app.UsdcMigrationKeeper = usdcmigrationkeeper.NewKeeper(
 	appCodec, runtime.NewKVStoreService(keys[usdcmigrationtypes.StoreKey]),
-	app.BankKeeper,
 	<previous transfer ICS4Wrapper>, // e.g. app.PacketForwardKeeper or app.IBCKeeper.ChannelKeeper
 	authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 )
