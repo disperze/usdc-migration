@@ -25,7 +25,7 @@ func (k *Keeper) InitGenesis(ctx context.Context, gs types.GenesisState) error {
 }
 
 // ExportGenesis exports the module state.
-func (k *Keeper) ExportGenesis(ctx context.Context) (_ *types.GenesisState, err error) {
+func (k *Keeper) ExportGenesis(ctx context.Context) (*types.GenesisState, error) {
 	gs := types.DefaultGenesis()
 	gs.Params = k.GetParams(ctx)
 
