@@ -8,6 +8,7 @@ Line references point to the release analysed for each chain. Re-check them agai
 | Agoric | v10 | `…/usdc-migration/v10` | `channel-62` | `ibc/FE98AAD68F02F03565E9FA39A5E627946699B2B07115889ED812D8BA639576A9` |
 | Xion | v10 | `…/usdc-migration/v10` | `channel-2` | `ibc/F082B65C88E4B6D5EF1DB243CDA1D331D002759E938A0F5CD3FFDC5D53B3E349` |
 | Coreum | v10 | `…/usdc-migration/v10` | `channel-19` | `ibc/E1E3674A0E4E1EF9C69646F9AF8D9497173821826074622D831BAB73CCB99A2D` * |
+| Neutron | v10 | `…/usdc-migration/v10` | `channel-30` | `ibc/B559A80D62249C8AA07A380E2A2BEA6E5CA9A6F079C912C3A9E9B494105E4F81` |
 | Terra2 | v8 | `…/usdc-migration/v8` | `channel-253` | `ibc/2C962DAB9F57FE0921435426AE75196009FAA1981BF86991203C8411F8980FDB` |
 | Haqq | v8 | `…/usdc-migration/v8` | `channel-4` | `ibc/BFF0D3805B50D93E2FA5C0B2DDF7E0B30A631076CD80BC12A48C0E95404B4A41` * |
 | Impacthub (ixo) | v8 | `…/usdc-migration/v8` | `channel-26` | `ibc/6BBE9BD4246F8E04948D5A4EEE7164B2630263B9EBB5E7DC5F0A46C62A2FF97B` * |
@@ -128,6 +129,25 @@ if err := app.UsdcMigrationKeeper.Params.Set(ctx, params); err != nil {
 - **Transfer stack:** after `wibctransfer.NewPurposeMiddleware` (line 834), add `ibcTransferStack = usdcmigration.NewIBCMiddleware(app.UsdcMigrationKeeper, ibcTransferStack)`.
 - **IBC v2** (lines 845-853): wrap `transferStackV2` with `usdcmigrationv2.NewIBCMiddleware` before `AddRoute`.
 - **DEX-locked balances:** voucher locked in DEX orders is not spendable, but this module never moves user balances, so nothing changes. The bank freeze will make DEX orders on the voucher fail to settle.
+
+## Neutron (v11.2.0, ibc-go v10)
+
+Repository: [solva-solutions/neutron](https://github.com/solva-solutions/neutron). **File:** `app/app.go`, in `WireICS20PreWasmKeeper`.
+
+- **Keeper construction**
+  - Create `UsdcMigrationKeeper` with `app.RateLimitingICS4Wrapper` as its ICS4 wrapper, after the rate-limit wrapper (line 1646) and before `TransferKeeper` (line 1649).
+  - `wrapkeeper.NewKeeper` (line 1649): pass `app.UsdcMigrationKeeper` instead of `app.RateLimitingICS4Wrapper` (line 1653).
+  - The copies of the transfer keeper (PFM's `SetTransferKeeper` at line 1663, the wasm keeper's `portSource`, the wasm IBC handler) then share the pointer. There is no late `WithICS4Wrapper`.
+- **Transfer stack**
+  - After the ibc-hooks wrap (line 1684), wrap it: `app.TransferStack = usdcmigration.NewIBCMiddleware(app.UsdcMigrationKeeper, &hooksTransferModule)`.
+  - The `TransferStack` field (line 393) is `*ibchooks.IBCMiddleware`; change it to `ibcporttypes.IBCModule`. Its only other use is `AddRoute` (line 847).
+- **IBC v2:** none. `ChannelKeeperV2` is only given to the wasm keeper.
+- **Wasm keeper ICS4 wrapper** (line 796): leave `app.RateLimitingICS4Wrapper`. It only sends packets on contract ports. Contract ICS20 transfers (`IbcMsg::Transfer` and Neutron's `IBCTransfer` binding) go through the transfer keeper, so they are covered.
+- **Upgrade handler:** Neutron's handlers receive their keepers through `upgrades.UpgradeKeepers` (`app/upgrades/types.go`, filled at line 1322). Add `UsdcMigrationKeeper` there to set the params.
+- **IBC rate limits:** the return packet goes through `app.RateLimitingICS4Wrapper`. The rate-limit contract (`neutron15aqgplxcavqhurr0g5wwtdw6025dknkqwkfh0n46gp2qjl6236cs2yd3nl`) has send quotas on this voucher for channel `any`: 35% of the supply per day, 70% per week. A full return is above them, so the return proposal removes that path first (`remove_path`). Since v11 the gov module holds every role on the contract, with no timelock.
+- **Holders:**
+  - The native DEX (`x/dex`) is in withdraw-only mode. It moves coins with module-account sends, which skip `SendEnabled`, so LPs can still withdraw the voucher after the freeze.
+  - About 81% of the supply (1,672,301.71 of 2,057,515.89 USDC on 2026-10-26) is in one account, `neutron1yr29fd7uzdjp2jsq8hrta8mvyd6ex7vumn0shy`, which has never sent a transaction. Identify and contact its owner before the upgrade.
 
 ## Terra2 (v2.22, ibc-go v8)
 
