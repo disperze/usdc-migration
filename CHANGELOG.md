@@ -26,15 +26,6 @@ First release, to be tagged `v10.0.0`.
   `usdcmigration_params_updated` events.
 - Apache-2.0 `LICENSE`.
 
-### Changed
-
-- **Breaking:** the Go module path is now `github.com/disperze/usdc-migration/v10`,
-  matching where the repository is hosted. Code that imported
-  `github.com/giansalex/usdc-migration/v10` from a commit must update its import
-  paths and `go.mod`. The protobuf `go_package` and buf module name moved to
-  `disperze` too; the proto package (`usdcmigration.v1`) and type URLs are
-  unchanged, so on-chain state and messages are not affected.
-
 ## Releasing
 
 1. Move the `[Unreleased]` entries under a new `## [vX.Y.Z] - YYYY-MM-DD`
@@ -46,11 +37,3 @@ First release, to be tagged `v10.0.0`.
    git tag -a v10.0.0 -m "v10.0.0"
    git push origin v10.0.0
    ```
-
-3. Create a GitHub release from the tag with the changelog section as notes.
-
-`release/v8.x` still uses `github.com/giansalex/usdc-migration/v8`. Before
-tagging `v8.0.0`, port the `LICENSE`, this changelog and the module path change
-(`github.com/disperze/usdc-migration/v8`) to that branch.
-
-[Unreleased]: https://github.com/disperze/usdc-migration/commits/master
