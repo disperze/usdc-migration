@@ -3,12 +3,17 @@ package keeper
 import (
 	"context"
 
+	"cosmossdk.io/math"
+
 	"github.com/disperze/usdc-migration/v10/x/usdcmigration/types"
 )
 
 // InitGenesis initializes the module state from genesis.
 func (k *Keeper) InitGenesis(ctx context.Context, gs types.GenesisState) error {
-	if err := k.Params.Set(ctx, gs.Params); err != nil {
+	if err := gs.Validate(); err != nil {
+		return err
+	}
+	if err := k.SetParams(ctx, gs.Params); err != nil {
 		return err
 	}
 	for _, rt := range gs.ReturnedTotals {
@@ -20,25 +25,16 @@ func (k *Keeper) InitGenesis(ctx context.Context, gs types.GenesisState) error {
 }
 
 // ExportGenesis exports the module state.
-func (k *Keeper) ExportGenesis(ctx context.Context) (_ *types.GenesisState, err error) {
+func (k *Keeper) ExportGenesis(ctx context.Context) (*types.GenesisState, error) {
 	gs := types.DefaultGenesis()
 	gs.Params = k.GetParams(ctx)
 
-	iter, err := k.ReturnedTotals.Iterate(ctx, nil)
+	err := k.ReturnedTotals.Walk(ctx, nil, func(channelID string, amount math.Int) (bool, error) {
+		gs.ReturnedTotals = append(gs.ReturnedTotals, types.ReturnedTotal{ChannelId: channelID, Amount: amount})
+		return false, nil
+	})
 	if err != nil {
 		return nil, err
-	}
-	defer func() {
-		if cerr := iter.Close(); cerr != nil && err == nil {
-			err = cerr
-		}
-	}()
-	for ; iter.Valid(); iter.Next() {
-		kv, err := iter.KeyValue()
-		if err != nil {
-			return nil, err
-		}
-		gs.ReturnedTotals = append(gs.ReturnedTotals, types.ReturnedTotal{ChannelId: kv.Key, Amount: kv.Value})
 	}
 	return gs, nil
 }

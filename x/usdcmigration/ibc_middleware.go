@@ -85,7 +85,7 @@ func (im IBCMiddleware) OnAcknowledgementPacket(ctx sdk.Context, channelVersion 
 	if data, ok := im.returnPacketData(ctx, packet); ok {
 		var ack channeltypes.Acknowledgement
 		if err := transfertypes.ModuleCdc.UnmarshalJSON(acknowledgement, &ack); err == nil && !ack.Success() {
-			return im.keeper.OnReturnRefunded(ctx, packet.SourceChannel, data.Denom, data.Sender, data.Amount, "error_ack")
+			return im.keeper.OnReturnRefunded(ctx, packet.SourceChannel, packet.Sequence, data.Denom, data.Sender, data.Amount, types.RefundReasonErrorAck)
 		}
 	}
 	return im.app.OnAcknowledgementPacket(ctx, channelVersion, packet, acknowledgement, relayer)
@@ -96,7 +96,7 @@ func (im IBCMiddleware) OnAcknowledgementPacket(ctx sdk.Context, channelVersion 
 // transfer app, so no voucher is minted back.
 func (im IBCMiddleware) OnTimeoutPacket(ctx sdk.Context, channelVersion string, packet channeltypes.Packet, relayer sdk.AccAddress) error {
 	if data, ok := im.returnPacketData(ctx, packet); ok {
-		return im.keeper.OnReturnRefunded(ctx, packet.SourceChannel, data.Denom, data.Sender, data.Amount, "timeout")
+		return im.keeper.OnReturnRefunded(ctx, packet.SourceChannel, packet.Sequence, data.Denom, data.Sender, data.Amount, types.RefundReasonTimeout)
 	}
 	return im.app.OnTimeoutPacket(ctx, channelVersion, packet, relayer)
 }
@@ -105,6 +105,9 @@ func (im IBCMiddleware) OnTimeoutPacket(ctx sdk.Context, channelVersion string, 
 // a return packet sent by MsgReturnToNoble.
 func (im IBCMiddleware) returnPacketData(ctx sdk.Context, packet channeltypes.Packet) (transfertypes.FungibleTokenPacketData, bool) {
 	var data transfertypes.FungibleTokenPacketData
+	if packet.SourcePort != types.TransferPortID {
+		return data, false
+	}
 	if err := json.Unmarshal(packet.GetData(), &data); err != nil {
 		return data, false
 	}
@@ -131,7 +134,7 @@ func (im IBCMiddleware) GetAppVersion(ctx sdk.Context, portID, channelID string)
 func (im IBCMiddleware) UnmarshalPacketData(ctx sdk.Context, portID, channelID string, bz []byte) (any, string, error) {
 	unmarshaler, ok := im.app.(porttypes.PacketDataUnmarshaler)
 	if !ok {
-		return nil, "", errorsmod.Wrapf(types.ErrInvalidParams, "%T does not implement PacketDataUnmarshaler", im.app)
+		return nil, "", errorsmod.Wrapf(types.ErrUnsupportedApp, "%T does not implement PacketDataUnmarshaler", im.app)
 	}
 	return unmarshaler.UnmarshalPacketData(ctx, portID, channelID, bz)
 }

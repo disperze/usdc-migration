@@ -16,4 +16,6 @@ var (
 	ErrInvalidTimeout   = errorsmod.Register(ModuleName, 10, "invalid timeout")
 	ErrInvalidAmount    = errorsmod.Register(ModuleName, 11, "invalid amount")
 	ErrInvalidAuthority = errorsmod.Register(ModuleName, 12, "invalid authority")
+	ErrInvalidState     = errorsmod.Register(ModuleName, 13, "invalid module state")
+	ErrUnsupportedApp   = errorsmod.Register(ModuleName, 14, "wrapped app does not support the call")
 )

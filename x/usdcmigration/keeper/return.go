@@ -17,10 +17,9 @@ import (
 // account: Noble releases the matching USDC from the channel escrow to
 // receiver. The packet is sent below this keeper's own SendPacket, so the send
 // block (which also covers the authority) does not apply to it.
-func (k *Keeper) sendReturnPacket(ctx sdk.Context, channelID string, amount math.Int, receiver, memo string, timeoutTimestamp uint64) (uint64, error) {
-	params := k.GetParams(ctx)
+func (k *Keeper) sendReturnPacket(ctx sdk.Context, baseDenom, channelID string, amount math.Int, receiver, memo string, timeoutTimestamp uint64) (uint64, error) {
 	data := transfertypes.NewFungibleTokenPacketData(
-		types.VoucherPath(channelID, params.BaseDenom), amount.String(), k.authority, receiver, memo,
+		types.VoucherPath(channelID, baseDenom), amount.String(), k.authority, receiver, memo,
 	)
 	if err := data.ValidateBasic(); err != nil {
 		return 0, err
@@ -31,7 +30,8 @@ func (k *Keeper) sendReturnPacket(ctx sdk.Context, channelID string, amount math
 // IsReturnPacket reports whether an ICS20 packet sent over sourceChannel is a
 // return to Noble built by MsgReturnToNoble. Since the send block rejects the
 // voucher for every sender, the authority included, only the module can have
-// sent such a packet.
+// sent such a packet. The match uses the current params, so they must not
+// change while a return is in flight (see docs/integration.md).
 func (k *Keeper) IsReturnPacket(ctx sdk.Context, sourceChannel, denomPath, sender string) bool {
 	params := k.GetParams(ctx)
 	return sender == k.authority && params.IsNobleChannel(sourceChannel) &&

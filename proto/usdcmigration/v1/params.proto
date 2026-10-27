@@ -23,6 +23,7 @@ message Params {
   bool recv_block_enabled = 3;
 
   // send_block_enabled rejects outgoing ICS20 transfers of the voucher denom
-  // on any channel unless the sender is the module authority (gov).
+  // on any channel, whoever the sender is (the module authority included).
+  // Only MsgReturnToNoble returns the voucher to Noble.
   bool send_block_enabled = 4;
 }

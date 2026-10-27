@@ -158,6 +158,10 @@ func (s *MiddlewareTestSuite) returnToNoble(amount sdkmath.Int, receiver sdk.Acc
 	return res, packet, nil
 }
 
+func (s *MiddlewareTestSuite) returnedTotal() sdkmath.Int {
+	return s.keeper().GetReturnedTotal(s.chainA.GetContext(), s.pathAB.EndpointA.ChannelID)
+}
+
 func (s *MiddlewareTestSuite) requireErrorAck(ack []byte) {
 	var a channeltypes.Acknowledgement
 	s.Require().NoError(transfertypes.ModuleCdc.UnmarshalJSON(ack, &a))
@@ -267,6 +271,7 @@ func (s *MiddlewareTestSuite) TestReturnToNobleDrainsEscrow() {
 	s.Require().NoError(err)
 	s.Require().Equal(s.seeded, res.Amount)
 	s.Require().Equal(s.voucher, res.Denom)
+	s.Require().Equal(res.Sequence, packet.Sequence)
 	s.requireVoucherUntouched()
 
 	ack := s.relay(s.pathAB, packet)
@@ -280,14 +285,13 @@ func (s *MiddlewareTestSuite) TestReturnToNobleDrainsEscrow() {
 
 	// chain A: no voucher minted, burned or moved, cap exhausted
 	s.requireVoucherUntouched()
-	s.Require().Equal(s.seeded, s.keeper().GetReturnedTotal(s.chainA.GetContext(), s.pathAB.EndpointA.ChannelID))
+	s.Require().Equal(s.seeded, s.returnedTotal())
 
 	_, _, err = s.returnToNoble(sdkmath.ZeroInt(), s.multisig, 0)
 	s.Require().ErrorIs(err, types.ErrNothingToReturn)
 }
 
 func (s *MiddlewareTestSuite) TestReturnToNoblePartialAndCap() {
-	channel := s.pathAB.EndpointA.ChannelID
 	half := s.seeded.QuoRaw(2)
 	_, packet, err := s.returnToNoble(half, s.multisig, 0)
 	s.Require().NoError(err)
@@ -298,7 +302,7 @@ func (s *MiddlewareTestSuite) TestReturnToNoblePartialAndCap() {
 	_, packet, err = s.returnToNoble(half.AddRaw(1), s.multisig, 0)
 	s.Require().NoError(err)
 	s.requireErrorAck(s.relay(s.pathAB, packet))
-	s.Require().Equal(half, s.keeper().GetReturnedTotal(s.chainA.GetContext(), channel))
+	s.Require().Equal(half, s.returnedTotal())
 	s.Require().Equal(half, s.nobleEscrow())
 
 	_, packet, err = s.returnToNoble(sdkmath.ZeroInt(), s.multisig, 0)
@@ -335,10 +339,9 @@ func (s *MiddlewareTestSuite) TestReturnToNobleDrainsEscrowAboveSupply() {
 	s.Require().Equal(all, s.balance(s.chainB, s.multisig, usdc))
 	s.requireVoucherUntouched()
 
-	_, _, returned, returnCap, err := s.keeper().ReturnCap(s.chainA.GetContext(), s.pathAB.EndpointA.ChannelID)
-	s.Require().NoError(err)
-	s.Require().Equal(all, returned)
-	s.Require().True(returnCap.IsZero())
+	info := s.keeper().ReturnCap(s.chainA.GetContext(), s.pathAB.EndpointA.ChannelID)
+	s.Require().Equal(all, info.Returned)
+	s.Require().True(info.Cap.IsZero())
 
 	_, _, err = s.returnToNoble(sdkmath.ZeroInt(), s.multisig, 0)
 	s.Require().ErrorIs(err, types.ErrNothingToReturn)
@@ -352,7 +355,7 @@ func (s *MiddlewareTestSuite) TestReturnToNobleErrorAckRefundsAndRetries() {
 	s.requireErrorAck(s.relay(s.pathAB, packet))
 
 	s.requireVoucherUntouched()
-	s.Require().True(s.keeper().GetReturnedTotal(s.chainA.GetContext(), s.pathAB.EndpointA.ChannelID).IsZero())
+	s.Require().True(s.returnedTotal().IsZero())
 	s.Require().Equal(s.seeded, s.nobleEscrow())
 
 	// Retry is just another return.
@@ -376,7 +379,7 @@ func (s *MiddlewareTestSuite) TestReturnToNobleTimeoutRefunds() {
 	s.Require().NoError(s.pathAB.EndpointA.TimeoutPacket(packet))
 
 	s.requireVoucherUntouched()
-	s.Require().True(s.keeper().GetReturnedTotal(s.chainA.GetContext(), s.pathAB.EndpointA.ChannelID).IsZero())
+	s.Require().True(s.returnedTotal().IsZero())
 	s.Require().Equal(s.seeded, s.nobleEscrow())
 }
 
