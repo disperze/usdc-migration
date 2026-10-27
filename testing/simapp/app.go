@@ -502,7 +502,7 @@ func NewSimApp(
 		// IBC modules
 		ibc.NewAppModule(app.IBCKeeper),
 		transfer.NewAppModule(app.TransferKeeper),
-		usdcmigration.NewAppModule(appCodec, app.UsdcMigrationKeeper),
+		usdcmigration.NewAppModule(app.UsdcMigrationKeeper),
 		ica.NewAppModule(&app.ICAControllerKeeper, &app.ICAHostKeeper),
 		mockModule,
 

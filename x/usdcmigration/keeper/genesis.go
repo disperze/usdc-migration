@@ -13,7 +13,7 @@ func (k *Keeper) InitGenesis(ctx context.Context, gs types.GenesisState) error {
 	if err := gs.Validate(); err != nil {
 		return err
 	}
-	if err := k.SetParams(ctx, gs.Params); err != nil {
+	if err := k.Params.Set(ctx, gs.Params); err != nil {
 		return err
 	}
 	for _, rt := range gs.ReturnedTotals {

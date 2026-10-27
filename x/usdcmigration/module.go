@@ -33,13 +33,12 @@ var (
 
 // AppModule implements the usdcmigration module.
 type AppModule struct {
-	cdc    codec.Codec
 	keeper *keeper.Keeper
 }
 
 // NewAppModule creates a new AppModule.
-func NewAppModule(cdc codec.Codec, k *keeper.Keeper) AppModule {
-	return AppModule{cdc: cdc, keeper: k}
+func NewAppModule(k *keeper.Keeper) AppModule {
+	return AppModule{keeper: k}
 }
 
 // IsOnePerModuleType implements depinject.OnePerModuleType.

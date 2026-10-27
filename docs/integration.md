@@ -52,7 +52,7 @@ transferStack = usdcmigration.NewIBCMiddleware(app.UsdcMigrationKeeper, transfer
 ibcv2TransferStack = usdcmigrationv2.NewIBCMiddleware(app.UsdcMigrationKeeper, ibcv2TransferStack)
 
 // 5. Module manager + InitGenesis/ExportGenesis order (after transfer):
-usdcmigration.NewAppModule(appCodec, app.UsdcMigrationKeeper),
+usdcmigration.NewAppModule(app.UsdcMigrationKeeper),
 ```
 
 **Rules that matter:**

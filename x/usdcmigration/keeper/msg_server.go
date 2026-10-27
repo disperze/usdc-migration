@@ -24,8 +24,11 @@ func NewMsgServerImpl(k *Keeper) types.MsgServer {
 
 // UpdateParams implements types.MsgServer.
 func (m msgServer) UpdateParams(goCtx context.Context, msg *types.MsgUpdateParams) (*types.MsgUpdateParamsResponse, error) {
-	if msg.Authority != m.authority {
-		return nil, errorsmod.Wrapf(types.ErrInvalidAuthority, "expected %s, got %s", m.authority, msg.Authority)
+	if err := m.checkAuthority(msg.Authority); err != nil {
+		return nil, err
+	}
+	if err := msg.ValidateBasic(); err != nil {
+		return nil, err
 	}
 	if err := m.SetParams(goCtx, msg.Params); err != nil {
 		return nil, err
@@ -44,8 +47,8 @@ func (m msgServer) UpdateParams(goCtx context.Context, msg *types.MsgUpdateParam
 // escrow to the receiver. Nothing is minted, burned or moved on this chain, so
 // neither user balances nor the authority account are touched.
 func (m msgServer) ReturnToNoble(goCtx context.Context, msg *types.MsgReturnToNoble) (*types.MsgReturnToNobleResponse, error) {
-	if msg.Authority != m.authority {
-		return nil, errorsmod.Wrapf(types.ErrInvalidAuthority, "expected %s, got %s", m.authority, msg.Authority)
+	if err := m.checkAuthority(msg.Authority); err != nil {
+		return nil, err
 	}
 	if err := msg.ValidateBasic(); err != nil {
 		return nil, err
@@ -75,20 +78,13 @@ func (m msgServer) ReturnToNoble(goCtx context.Context, msg *types.MsgReturnToNo
 		return nil, types.ErrNothingToReturn
 	}
 
-	timeoutSeconds := msg.TimeoutSeconds
-	if timeoutSeconds == 0 {
-		timeoutSeconds = types.DefaultTimeoutSeconds
-	}
-	timeoutTimestamp := uint64(ctx.BlockTime().UnixNano()) + timeoutSeconds*1_000_000_000
-	sequence, err := m.sendReturnPacket(ctx, params.BaseDenom, msg.ChannelId, amount, msg.Receiver, msg.Memo, timeoutTimestamp)
+	sequence, err := m.sendReturnPacket(ctx, msg, params.BaseDenom, amount)
 	if err != nil {
 		return nil, err
 	}
-
 	if err := m.addReturnedTotal(ctx, msg.ChannelId, amount); err != nil {
 		return nil, err
 	}
-	m.Logger(ctx).Info("return to Noble sent", "channel", msg.ChannelId, "sequence", sequence, "amount", amount.String(), "receiver", msg.Receiver)
 
 	ctx.EventManager().EmitEvent(sdk.NewEvent(
 		types.EventTypeReturnToNoble,

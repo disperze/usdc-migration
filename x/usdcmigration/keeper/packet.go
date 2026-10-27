@@ -10,20 +10,11 @@ import (
 	"github.com/disperze/usdc-migration/v10/x/usdcmigration/types"
 )
 
-// ShouldBlockRecv reports whether an ICS20 packet of packetDenom arriving on
-// destChannel must be answered with an error acknowledgement.
-func (k *Keeper) ShouldBlockRecv(ctx sdk.Context, destChannel, packetDenom string) bool {
-	return k.GetParams(ctx).ShouldBlockRecv(destChannel, packetDenom)
-}
-
 // OnReturnRefunded releases the returned total of a return packet that came
-// back as an error ack or timed out. The return burned nothing, so nothing is
-// minted back: the voucher stays backed by Noble's escrow and can be returned
-// again. Packets that are not return packets are ignored.
-func (k *Keeper) OnReturnRefunded(ctx sdk.Context, sourceChannel string, sequence uint64, denomPath, sender, amount, reason string) error {
-	if !k.IsReturnPacket(ctx, sourceChannel, denomPath, sender) {
-		return nil
-	}
+// back as an error ack or timed out. The caller must have checked the packet
+// with IsReturnPacket. The return burned nothing, so nothing is minted back:
+// the voucher stays backed by Noble's escrow and can be returned again.
+func (k *Keeper) OnReturnRefunded(ctx sdk.Context, sourceChannel string, sequence uint64, amount, reason string) error {
 	amt, ok := math.NewIntFromString(amount)
 	if !ok {
 		return nil
@@ -31,7 +22,6 @@ func (k *Keeper) OnReturnRefunded(ctx sdk.Context, sourceChannel string, sequenc
 	if err := k.subReturnedTotal(ctx, sourceChannel, amt); err != nil {
 		return err
 	}
-	k.Logger(ctx).Info("return to Noble refunded", "channel", sourceChannel, "sequence", sequence, "amount", amt.String(), "reason", reason)
 	ctx.EventManager().EmitEvent(sdk.NewEvent(
 		types.EventTypeReturnRefunded,
 		sdk.NewAttribute(types.AttributeKeyHeight, strconv.FormatInt(ctx.BlockHeight(), 10)),

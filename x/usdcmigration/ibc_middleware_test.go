@@ -340,7 +340,7 @@ func (s *MiddlewareTestSuite) TestReturnToNobleDrainsEscrowAboveSupply() {
 	s.requireVoucherUntouched()
 
 	info := s.keeper().ReturnCap(s.chainA.GetContext(), s.pathAB.EndpointA.ChannelID)
-	s.Require().Equal(all, info.Returned)
+	s.Require().Equal(all, info.ReturnedTotal)
 	s.Require().True(info.Cap.IsZero())
 
 	_, _, err = s.returnToNoble(sdkmath.ZeroInt(), s.multisig, 0)

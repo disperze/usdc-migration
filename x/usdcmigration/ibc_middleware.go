@@ -8,7 +8,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
 	porttypes "github.com/cosmos/ibc-go/v10/modules/core/05-port/types"
 	"github.com/cosmos/ibc-go/v10/modules/core/exported"
@@ -24,44 +23,17 @@ var (
 
 // IBCMiddleware must be the outermost layer of the ICS20 transfer stack so it
 // sees packets before PFM, ibc-hooks or other middleware act on them.
+// Channel handshake callbacks pass through to the wrapped app, and sends go
+// through the keeper, which enforces the send block.
 type IBCMiddleware struct {
-	app    porttypes.IBCModule
+	porttypes.IBCModule
+	porttypes.ICS4Wrapper
 	keeper *keeper.Keeper
 }
 
 // NewIBCMiddleware wraps app (the existing transfer stack).
 func NewIBCMiddleware(k *keeper.Keeper, app porttypes.IBCModule) IBCMiddleware {
-	return IBCMiddleware{app: app, keeper: k}
-}
-
-// OnChanOpenInit implements porttypes.IBCModule.
-func (im IBCMiddleware) OnChanOpenInit(ctx sdk.Context, order channeltypes.Order, connectionHops []string, portID, channelID string, counterparty channeltypes.Counterparty, version string) (string, error) {
-	return im.app.OnChanOpenInit(ctx, order, connectionHops, portID, channelID, counterparty, version)
-}
-
-// OnChanOpenTry implements porttypes.IBCModule.
-func (im IBCMiddleware) OnChanOpenTry(ctx sdk.Context, order channeltypes.Order, connectionHops []string, portID, channelID string, counterparty channeltypes.Counterparty, counterpartyVersion string) (string, error) {
-	return im.app.OnChanOpenTry(ctx, order, connectionHops, portID, channelID, counterparty, counterpartyVersion)
-}
-
-// OnChanOpenAck implements porttypes.IBCModule.
-func (im IBCMiddleware) OnChanOpenAck(ctx sdk.Context, portID, channelID, counterpartyChannelID, counterpartyVersion string) error {
-	return im.app.OnChanOpenAck(ctx, portID, channelID, counterpartyChannelID, counterpartyVersion)
-}
-
-// OnChanOpenConfirm implements porttypes.IBCModule.
-func (im IBCMiddleware) OnChanOpenConfirm(ctx sdk.Context, portID, channelID string) error {
-	return im.app.OnChanOpenConfirm(ctx, portID, channelID)
-}
-
-// OnChanCloseInit implements porttypes.IBCModule.
-func (im IBCMiddleware) OnChanCloseInit(ctx sdk.Context, portID, channelID string) error {
-	return im.app.OnChanCloseInit(ctx, portID, channelID)
-}
-
-// OnChanCloseConfirm implements porttypes.IBCModule.
-func (im IBCMiddleware) OnChanCloseConfirm(ctx sdk.Context, portID, channelID string) error {
-	return im.app.OnChanCloseConfirm(ctx, portID, channelID)
+	return IBCMiddleware{IBCModule: app, ICS4Wrapper: k, keeper: k}
 }
 
 // OnRecvPacket rejects the deprecated Noble denom arriving on a Noble channel
@@ -69,12 +41,12 @@ func (im IBCMiddleware) OnChanCloseConfirm(ctx sdk.Context, portID, channelID st
 func (im IBCMiddleware) OnRecvPacket(ctx sdk.Context, channelVersion string, packet channeltypes.Packet, relayer sdk.AccAddress) exported.Acknowledgement {
 	var data transfertypes.FungibleTokenPacketData
 	if err := json.Unmarshal(packet.GetData(), &data); err == nil &&
-		im.keeper.ShouldBlockRecv(ctx, packet.DestinationChannel, data.Denom) {
+		im.keeper.GetParams(ctx).ShouldBlockRecv(packet.DestinationChannel, data.Denom) {
 		return channeltypes.NewErrorAcknowledgement(
 			errorsmod.Wrapf(types.ErrRecvBlocked, "%s on %s", data.Denom, packet.DestinationChannel),
 		)
 	}
-	return im.app.OnRecvPacket(ctx, channelVersion, packet, relayer)
+	return im.IBCModule.OnRecvPacket(ctx, channelVersion, packet, relayer)
 }
 
 // OnAcknowledgementPacket releases the returned total when a return to Noble
@@ -85,10 +57,10 @@ func (im IBCMiddleware) OnAcknowledgementPacket(ctx sdk.Context, channelVersion 
 	if data, ok := im.returnPacketData(ctx, packet); ok {
 		var ack channeltypes.Acknowledgement
 		if err := transfertypes.ModuleCdc.UnmarshalJSON(acknowledgement, &ack); err == nil && !ack.Success() {
-			return im.keeper.OnReturnRefunded(ctx, packet.SourceChannel, packet.Sequence, data.Denom, data.Sender, data.Amount, types.RefundReasonErrorAck)
+			return im.keeper.OnReturnRefunded(ctx, packet.SourceChannel, packet.Sequence, data.Amount, types.RefundReasonErrorAck)
 		}
 	}
-	return im.app.OnAcknowledgementPacket(ctx, channelVersion, packet, acknowledgement, relayer)
+	return im.IBCModule.OnAcknowledgementPacket(ctx, channelVersion, packet, acknowledgement, relayer)
 }
 
 // OnTimeoutPacket releases the returned total when a return to Noble times
@@ -96,9 +68,9 @@ func (im IBCMiddleware) OnAcknowledgementPacket(ctx sdk.Context, channelVersion 
 // transfer app, so no voucher is minted back.
 func (im IBCMiddleware) OnTimeoutPacket(ctx sdk.Context, channelVersion string, packet channeltypes.Packet, relayer sdk.AccAddress) error {
 	if data, ok := im.returnPacketData(ctx, packet); ok {
-		return im.keeper.OnReturnRefunded(ctx, packet.SourceChannel, packet.Sequence, data.Denom, data.Sender, data.Amount, types.RefundReasonTimeout)
+		return im.keeper.OnReturnRefunded(ctx, packet.SourceChannel, packet.Sequence, data.Amount, types.RefundReasonTimeout)
 	}
-	return im.app.OnTimeoutPacket(ctx, channelVersion, packet, relayer)
+	return im.IBCModule.OnTimeoutPacket(ctx, channelVersion, packet, relayer)
 }
 
 // returnPacketData decodes the ICS20 data of packet and reports whether it is
@@ -114,27 +86,12 @@ func (im IBCMiddleware) returnPacketData(ctx sdk.Context, packet channeltypes.Pa
 	return data, im.keeper.IsReturnPacket(ctx, packet.SourceChannel, data.Denom, data.Sender)
 }
 
-// SendPacket implements porttypes.ICS4Wrapper.
-func (im IBCMiddleware) SendPacket(ctx sdk.Context, sourcePort, sourceChannel string, timeoutHeight clienttypes.Height, timeoutTimestamp uint64, data []byte) (uint64, error) {
-	return im.keeper.SendPacket(ctx, sourcePort, sourceChannel, timeoutHeight, timeoutTimestamp, data)
-}
-
-// WriteAcknowledgement implements porttypes.ICS4Wrapper.
-func (im IBCMiddleware) WriteAcknowledgement(ctx sdk.Context, packet exported.PacketI, ack exported.Acknowledgement) error {
-	return im.keeper.WriteAcknowledgement(ctx, packet, ack)
-}
-
-// GetAppVersion implements porttypes.ICS4Wrapper.
-func (im IBCMiddleware) GetAppVersion(ctx sdk.Context, portID, channelID string) (string, bool) {
-	return im.keeper.GetAppVersion(ctx, portID, channelID)
-}
-
 // UnmarshalPacketData delegates to the wrapped app so middleware stacked on
 // top of this one (e.g. callbacks) keeps working.
 func (im IBCMiddleware) UnmarshalPacketData(ctx sdk.Context, portID, channelID string, bz []byte) (any, string, error) {
-	unmarshaler, ok := im.app.(porttypes.PacketDataUnmarshaler)
+	unmarshaler, ok := im.IBCModule.(porttypes.PacketDataUnmarshaler)
 	if !ok {
-		return nil, "", errorsmod.Wrapf(types.ErrUnsupportedApp, "%T does not implement PacketDataUnmarshaler", im.app)
+		return nil, "", errorsmod.Wrapf(types.ErrUnsupportedApp, "%T does not implement PacketDataUnmarshaler", im.IBCModule)
 	}
 	return unmarshaler.UnmarshalPacketData(ctx, portID, channelID, bz)
 }
