@@ -13,7 +13,7 @@ import (
 	porttypes "github.com/cosmos/ibc-go/v8/modules/core/05-port/types"
 	"github.com/cosmos/ibc-go/v8/modules/core/exported"
 
-	"github.com/giansalex/usdc-migration/v8/x/usdcmigration/types"
+	"github.com/disperze/usdc-migration/v8/x/usdcmigration/types"
 )
 
 var _ porttypes.ICS4Wrapper = (*Keeper)(nil)

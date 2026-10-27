@@ -1,4 +1,4 @@
-module github.com/giansalex/usdc-migration/v8
+module github.com/disperze/usdc-migration/v8
 
 go 1.23.8
 

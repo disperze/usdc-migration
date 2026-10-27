@@ -14,7 +14,7 @@ import (
 
 	porttypes "github.com/cosmos/ibc-go/v8/modules/core/05-port/types"
 
-	"github.com/giansalex/usdc-migration/v8/x/usdcmigration/types"
+	"github.com/disperze/usdc-migration/v8/x/usdcmigration/types"
 )
 
 // Keeper holds the module state and wraps the ICS4 channel used by the

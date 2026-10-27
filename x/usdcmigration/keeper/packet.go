@@ -7,7 +7,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/giansalex/usdc-migration/v8/x/usdcmigration/types"
+	"github.com/disperze/usdc-migration/v8/x/usdcmigration/types"
 )
 
 // ShouldBlockRecv reports whether an ICS20 packet of packetDenom arriving on

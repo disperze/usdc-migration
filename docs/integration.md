@@ -20,10 +20,10 @@ Line references point to the release analysed for each chain. Re-check them agai
 
 ```go
 import (
-	"github.com/giansalex/usdc-migration/v10/x/usdcmigration"
-	usdcmigrationkeeper "github.com/giansalex/usdc-migration/v10/x/usdcmigration/keeper"
-	usdcmigrationtypes "github.com/giansalex/usdc-migration/v10/x/usdcmigration/types"
-	usdcmigrationv2 "github.com/giansalex/usdc-migration/v10/x/usdcmigration/v2" // v10 + IBC v2 only
+	"github.com/disperze/usdc-migration/v10/x/usdcmigration"
+	usdcmigrationkeeper "github.com/disperze/usdc-migration/v10/x/usdcmigration/keeper"
+	usdcmigrationtypes "github.com/disperze/usdc-migration/v10/x/usdcmigration/types"
+	usdcmigrationv2 "github.com/disperze/usdc-migration/v10/x/usdcmigration/v2" // v10 + IBC v2 only
 )
 
 // app struct

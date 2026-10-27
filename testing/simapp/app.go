@@ -134,9 +134,9 @@ import (
 	ibctm "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
 	ibcmock "github.com/cosmos/ibc-go/v8/testing/mock"
 	ibctestingtypes "github.com/cosmos/ibc-go/v8/testing/types"
-	"github.com/giansalex/usdc-migration/v8/x/usdcmigration"
-	usdcmigrationkeeper "github.com/giansalex/usdc-migration/v8/x/usdcmigration/keeper"
-	usdcmigrationtypes "github.com/giansalex/usdc-migration/v8/x/usdcmigration/types"
+	"github.com/disperze/usdc-migration/v8/x/usdcmigration"
+	usdcmigrationkeeper "github.com/disperze/usdc-migration/v8/x/usdcmigration/keeper"
+	usdcmigrationtypes "github.com/disperze/usdc-migration/v8/x/usdcmigration/types"
 )
 
 const appName = "SimApp"

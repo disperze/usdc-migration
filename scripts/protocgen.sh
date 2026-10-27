@@ -9,5 +9,5 @@ buf generate --template buf.gen.gogo.yaml
 
 cd ..
 # buf writes to the go_package path; move it into the module tree.
-cp -r github.com/giansalex/usdc-migration/v8/* ./
+cp -r github.com/disperze/usdc-migration/v8/* ./
 rm -rf github.com

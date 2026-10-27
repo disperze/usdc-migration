@@ -39,12 +39,14 @@ cap = bank supply(voucher) − returned_total(channel)
 
 | Branch | Go module | Cosmos SDK | ibc-go | Chains |
 |---|---|---|---|---|
-| `master` | `github.com/giansalex/usdc-migration/v10` | ≥ v0.53.4 | v10 (≥ v10.5.0) | Agoric, Xion, Coreum, Neutron, Juno |
-| `release/v8.x` | `github.com/giansalex/usdc-migration/v8` | ≥ v0.50.10 | v8 (≥ v8.7.0) | Terra2, Haqq, Impacthub (ixo), Archway |
+| `master` | `github.com/disperze/usdc-migration/v10` | ≥ v0.53.4 | v10 (≥ v10.5.0) | Agoric, Xion, Coreum, Neutron, Juno |
+| `release/v8.x` | `github.com/disperze/usdc-migration/v8` | ≥ v0.50.10 | v8 (≥ v8.7.0) | Terra2, Haqq, Impacthub (ixo), Archway |
 
 Only the ibc-go-specific files differ between the two lines: the middleware, the ICS4 wrapper, the return packet and the expected keepers. The v8 line has no IBC v2 wrapper. Two more differences on v8:
 - `NewKeeper` also takes the transfer module's scoped keeper, which the return packet needs for the channel capability.
 - The middleware also reads ICS29 incentivized acks, so a refund on a fee-enabled channel is still caught.
+
+Releases are tagged `v10.x.y` on `master` and `v8.x.y` on `release/v8.x`. See [CHANGELOG.md](CHANGELOG.md).
 
 ## Messages, queries, events
 
@@ -149,3 +151,7 @@ bash scripts/protocgen.sh   # needs buf, protoc-gen-gocosmos, protoc-gen-grpc-ga
   - error-ack and timeout refunds with nothing minted, then a retry.
   - v8 only: an error ack on an ICS29 fee-enabled channel. The keeper tests also cover the channel capability check.
 - `testing/simapp`: the ibc-go v10.5.0 simapp with this module wired in.
+
+## License
+
+Apache License 2.0. See [LICENSE](LICENSE).

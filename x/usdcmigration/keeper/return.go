@@ -11,7 +11,7 @@ import (
 	channeltypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
 	host "github.com/cosmos/ibc-go/v8/modules/core/24-host"
 
-	"github.com/giansalex/usdc-migration/v8/x/usdcmigration/types"
+	"github.com/disperze/usdc-migration/v8/x/usdcmigration/types"
 )
 
 // sendReturnPacket builds the ICS20 packet that returns amount of the Noble

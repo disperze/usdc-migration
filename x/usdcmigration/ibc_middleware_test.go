@@ -24,9 +24,9 @@ import (
 	channeltypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
 	ibctesting "github.com/cosmos/ibc-go/v8/testing"
 
-	"github.com/giansalex/usdc-migration/v8/testing/simapp"
-	"github.com/giansalex/usdc-migration/v8/x/usdcmigration/keeper"
-	"github.com/giansalex/usdc-migration/v8/x/usdcmigration/types"
+	"github.com/disperze/usdc-migration/v8/testing/simapp"
+	"github.com/disperze/usdc-migration/v8/x/usdcmigration/keeper"
+	"github.com/disperze/usdc-migration/v8/x/usdcmigration/types"
 )
 
 const usdc = "uusdc"

@@ -11,7 +11,7 @@ import (
 	capabilitytypes "github.com/cosmos/ibc-go/modules/capability/types"
 	icacontrollertypes "github.com/cosmos/ibc-go/v8/modules/apps/27-interchain-accounts/controller/types"
 	ibcmock "github.com/cosmos/ibc-go/v8/testing/mock"
-	"github.com/giansalex/usdc-migration/v8/testing/simapp/upgrades"
+	"github.com/disperze/usdc-migration/v8/testing/simapp/upgrades"
 )
 
 // registerUpgradeHandlers registers all supported upgrade handlers

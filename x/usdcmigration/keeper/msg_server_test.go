@@ -24,8 +24,8 @@ import (
 	host "github.com/cosmos/ibc-go/v8/modules/core/24-host"
 	"github.com/cosmos/ibc-go/v8/modules/core/exported"
 
-	"github.com/giansalex/usdc-migration/v8/x/usdcmigration/keeper"
-	"github.com/giansalex/usdc-migration/v8/x/usdcmigration/types"
+	"github.com/disperze/usdc-migration/v8/x/usdcmigration/keeper"
+	"github.com/disperze/usdc-migration/v8/x/usdcmigration/types"
 )
 
 type fakeBank struct {
