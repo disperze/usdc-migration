@@ -8,7 +8,7 @@ import (
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 
-	"github.com/giansalex/usdc-migration/v10/x/usdcmigration/types"
+	"github.com/disperze/usdc-migration/v10/x/usdcmigration/types"
 )
 
 // sendReturnPacket builds the ICS20 packet that returns amount of the Noble

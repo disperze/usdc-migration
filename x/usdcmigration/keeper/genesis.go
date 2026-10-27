@@ -3,7 +3,7 @@ package keeper
 import (
 	"context"
 
-	"github.com/giansalex/usdc-migration/v10/x/usdcmigration/types"
+	"github.com/disperze/usdc-migration/v10/x/usdcmigration/types"
 )
 
 // InitGenesis initializes the module state from genesis.
