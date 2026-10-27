@@ -14,15 +14,58 @@ jobs:
         with:
           go-version: "1.24.9"
       - run: test -z "$(gofmt -l .)"
+      - name: go mod tidy
+        run: |
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum
       - run: go vet ./...
       - run: go test ./...
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.9"
+      - uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.5.0
+
+  govulncheck:
+    runs-on: ubuntu-latest
+    # Informational until the Go toolchain and dependency bumps it reports
+    # are done; see the job log for the reachable vulnerabilities.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.9"
+      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
 
   proto:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.9"
       - uses: bufbuild/buf-setup-action@v1
         with:
           version: "1.50.0"
       - run: buf lint
         working-directory: proto
+      - name: buf breaking
+        if: github.event_name == 'pull_request'
+        run: buf breaking --against "../.git#ref=origin/${{ github.base_ref }},subdir=proto"
+        working-directory: proto
+      - name: generated code is up to date
+        run: |
+          go install github.com/cosmos/gogoproto/protoc-gen-gocosmos@v1.7.0
+          go install github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway@v1.16.0
+          bash scripts/protocgen.sh
+          git status --porcelain
+          test -z "$(git status --porcelain)"
