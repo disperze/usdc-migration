@@ -171,3 +171,10 @@ func TestUpdateParams(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, p, k.GetParams(ctx))
 }
+
+func TestSetParamsValidates(t *testing.T) {
+	ctx, k, _ := setup(t, fakeBank{supply: sdkmath.ZeroInt()})
+	p := types.DefaultParams()
+	p.NobleChannels = []string{"channel-1", "channel-1"}
+	require.ErrorIs(t, k.SetParams(ctx, p), types.ErrInvalidParams)
+}

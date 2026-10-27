@@ -20,7 +20,7 @@ func (k *Keeper) ShouldBlockRecv(ctx sdk.Context, destChannel, packetDenom strin
 // back as an error ack or timed out. The return burned nothing, so nothing is
 // minted back: the voucher stays backed by Noble's escrow and can be returned
 // again. Packets that are not return packets are ignored.
-func (k *Keeper) OnReturnRefunded(ctx sdk.Context, sourceChannel, denomPath, sender, amount, reason string) error {
+func (k *Keeper) OnReturnRefunded(ctx sdk.Context, sourceChannel string, sequence uint64, denomPath, sender, amount, reason string) error {
 	if !k.IsReturnPacket(ctx, sourceChannel, denomPath, sender) {
 		return nil
 	}
@@ -31,10 +31,12 @@ func (k *Keeper) OnReturnRefunded(ctx sdk.Context, sourceChannel, denomPath, sen
 	if err := k.subReturnedTotal(ctx, sourceChannel, amt); err != nil {
 		return err
 	}
+	k.Logger(ctx).Info("return to Noble refunded", "channel", sourceChannel, "sequence", sequence, "amount", amt.String(), "reason", reason)
 	ctx.EventManager().EmitEvent(sdk.NewEvent(
 		types.EventTypeReturnRefunded,
 		sdk.NewAttribute(types.AttributeKeyHeight, strconv.FormatInt(ctx.BlockHeight(), 10)),
 		sdk.NewAttribute(types.AttributeKeyChannelID, sourceChannel),
+		sdk.NewAttribute(types.AttributeKeySequence, strconv.FormatUint(sequence, 10)),
 		sdk.NewAttribute(types.AttributeKeyAmount, amt.String()),
 		sdk.NewAttribute(types.AttributeKeyReason, reason),
 	))

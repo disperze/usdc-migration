@@ -6,6 +6,7 @@ import (
 
 	"cosmossdk.io/collections"
 	"cosmossdk.io/core/store"
+	errorsmod "cosmossdk.io/errors"
 	"cosmossdk.io/log"
 	"cosmossdk.io/math"
 
@@ -95,6 +96,15 @@ func (k *Keeper) GetParams(ctx context.Context) types.Params {
 	return p
 }
 
+// SetParams validates and stores the module params. Upgrade handlers should
+// use it instead of writing Params directly.
+func (k *Keeper) SetParams(ctx context.Context, p types.Params) error {
+	if err := p.Validate(); err != nil {
+		return errorsmod.Wrap(types.ErrInvalidParams, err.Error())
+	}
+	return k.Params.Set(ctx, p)
+}
+
 // GetReturnedTotal returns the amount returned to Noble over channelID and not refunded.
 func (k *Keeper) GetReturnedTotal(ctx context.Context, channelID string) math.Int {
 	amt, err := k.ReturnedTotals.Get(ctx, channelID)
@@ -117,19 +127,26 @@ func (k *Keeper) subReturnedTotal(ctx context.Context, channelID string, amt mat
 	return k.ReturnedTotals.Set(ctx, channelID, total)
 }
 
+// ReturnCapInfo describes how much voucher can still be returned over a channel.
+type ReturnCapInfo struct {
+	Denom    string
+	Supply   math.Int
+	Returned math.Int
+	Cap      math.Int
+}
+
 // ReturnCap computes how much voucher can still be returned over channelID:
 // supply - returned total, floored at zero. Returns do not burn the voucher,
 // so while inbound USDC and outbound vouchers are blocked, this equals Noble's
 // escrow for the channel minus what has already been released.
-func (k *Keeper) ReturnCap(ctx context.Context, channelID string) (denom string, supply, returned, cap math.Int, err error) {
-	params := k.GetParams(ctx)
-	denom = types.VoucherDenom(channelID, params.BaseDenom)
-
-	supply = k.bankKeeper.GetSupply(ctx, denom).Amount
-	returned = k.GetReturnedTotal(ctx, channelID)
-	cap = supply.Sub(returned)
-	if cap.IsNegative() {
-		cap = math.ZeroInt()
+func (k *Keeper) ReturnCap(ctx context.Context, channelID string) ReturnCapInfo {
+	denom := types.VoucherDenom(channelID, k.GetParams(ctx).BaseDenom)
+	supply := k.bankKeeper.GetSupply(ctx, denom).Amount
+	returned := k.GetReturnedTotal(ctx, channelID)
+	return ReturnCapInfo{
+		Denom:    denom,
+		Supply:   supply,
+		Returned: returned,
+		Cap:      math.MaxInt(supply.Sub(returned), math.ZeroInt()),
 	}
-	return denom, supply, returned, cap, nil
 }

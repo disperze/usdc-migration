@@ -31,7 +31,7 @@ cap = bank supply(voucher) − returned_total(channel)
 
 - While both blocks are on, the voucher supply and Noble's escrow for the channel no longer change, except through the gov return, which does not burn the voucher. Normally they are equal, so `cap` is what Noble can still pay out.
 - The escrow can be above the supply (for example USDC sent straight to the escrow address) or slightly below it. An explicit `amount` is therefore not limited by `cap`: set it to Noble's escrow balance to release all of it. Noble enforces that balance; a larger amount gets an error ack and is handled like any refund below.
-- A return packet is any voucher packet sent by gov on a Noble channel. Gov can no longer send the voucher any other way, so this match is exact.
+- A return packet is any voucher packet sent by gov on a Noble channel. Gov can no longer send the voucher any other way, so this match is exact as long as `send_block_enabled` stays on and the params do not change while a return is in flight (see [Do not change params while a return is in flight](docs/integration.md#do-not-change-params-while-a-return-is-in-flight)).
 - If Noble answers with an error ack, or the packet times out, the middleware does **not** pass the packet on to the transfer module, which would mint the voucher back to gov. Instead it only decreases `returned_total`.
 - A retry is just another `MsgReturnToNoble`.
 
@@ -72,7 +72,7 @@ Releases are tagged `v10.x.y` on `master` and `v8.x.y` on `release/v8.x`. See [C
 
 **Events:**
 - `usdcmigration_return_to_noble`: `height`, `channel_id`, `denom`, `amount`, `receiver`, `sequence`. The `height` is the reference for the holder snapshot.
-- `usdcmigration_return_refunded`: emitted on an error ack or timeout.
+- `usdcmigration_return_refunded`: `height`, `channel_id`, `sequence`, `amount`, `reason` (`error_ack` or `timeout`).
 - `usdcmigration_params_updated`
 
 ## Governance runbook
@@ -109,6 +109,7 @@ Releases are tagged `v10.x.y` on `master` and `v8.x.y` on `release/v8.x`. See [C
 4. **Relay and verify.**
    - Relay the packet. Noble's escrow for the channel should be `0`, and the multisig should hold the USDC.
    - On this chain, `returned_total` should equal the amount and `cap` should be `0`.
+   - **Do not submit `MsgUpdateParams` until the return has settled** (acknowledged, or refunded with `usdcmigration_return_refunded`). See [docs/integration.md](docs/integration.md#do-not-change-params-while-a-return-is-in-flight).
 5. **Snapshot.** Take the holder snapshot of `ibc/<voucher hash>` at the `height` emitted by `usdcmigration_return_to_noble`, e.g. `query bank denom-owners … --height`.
 
 **If Noble refunds** (error ack or timeout), the cap is restored and an `usdcmigration_return_refunded` event is emitted. Nothing is minted to gov. The retry proposal is just another `MsgReturnToNoble`. The voucher can stay frozen, because the return packet involves no bank send.
