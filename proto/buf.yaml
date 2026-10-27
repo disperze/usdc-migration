@@ -8,6 +8,10 @@ deps:
 breaking:
   use:
     - FILE
+  except:
+    # go_package follows the Go module path; a path change is signalled by
+    # Go module versioning, not by the proto schema.
+    - FILE_SAME_GO_PACKAGE
 lint:
   use:
     - STANDARD
