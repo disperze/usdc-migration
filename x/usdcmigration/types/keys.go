@@ -23,6 +23,5 @@ const (
 // use. It is a variable only so in-process IBC tests can use their own prefix.
 var NobleBech32Prefix = "noble"
 
-// ParamsKey stores the module params. Prefix 1 held the per-channel returned
-// totals and must not be reused.
+// ParamsKey stores the module params.
 var ParamsKey = collections.NewPrefix(0)

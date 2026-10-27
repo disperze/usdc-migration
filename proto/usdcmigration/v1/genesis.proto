@@ -13,7 +13,4 @@ message GenesisState {
     (gogoproto.nullable) = false,
     (amino.dont_omitempty) = true
   ];
-
-  reserved 2;
-  reserved "returned_totals";
 }
