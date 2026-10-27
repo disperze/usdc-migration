@@ -39,7 +39,7 @@ cap = bank supply(voucher) − returned_total(channel)
 
 | Branch | Go module | Cosmos SDK | ibc-go | Chains |
 |---|---|---|---|---|
-| `main` | `github.com/giansalex/usdc-migration/v10` | ≥ v0.53.4 | v10 (≥ v10.5.0) | Agoric, Xion, Coreum, Neutron, Juno |
+| `master` | `github.com/giansalex/usdc-migration/v10` | ≥ v0.53.4 | v10 (≥ v10.5.0) | Agoric, Xion, Coreum, Neutron, Juno |
 | `release/v8.x` | `github.com/giansalex/usdc-migration/v8` | ≥ v0.50.10 | v8 (≥ v8.7.0) | Terra2, Haqq, Impacthub (ixo), Archway |
 
 Only the ibc-go-specific files differ between the two lines: the middleware, the ICS4 wrapper, the return packet and the expected keepers. The v8 line has no IBC v2 wrapper. Two more differences on v8:
