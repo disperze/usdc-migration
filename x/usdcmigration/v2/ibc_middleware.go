@@ -64,7 +64,7 @@ func (im IBCMiddleware) OnAcknowledgementPacket(ctx sdk.Context, sourceClient, d
 func (im IBCMiddleware) UnmarshalPacketData(payload channeltypesv2.Payload) (any, error) {
 	unmarshaler, ok := im.app.(api.PacketDataUnmarshaler)
 	if !ok {
-		return nil, errorsmod.Wrapf(types.ErrInvalidParams, "%T does not implement PacketDataUnmarshaler", im.app)
+		return nil, errorsmod.Wrapf(types.ErrUnsupportedApp, "%T does not implement PacketDataUnmarshaler", im.app)
 	}
 	return unmarshaler.UnmarshalPacketData(payload)
 }

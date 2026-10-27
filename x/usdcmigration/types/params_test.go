@@ -5,6 +5,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	sdkmath "cosmossdk.io/math"
+
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 
 	"github.com/giansalex/usdc-migration/v10/x/usdcmigration/types"
@@ -102,4 +104,38 @@ func TestShouldBlockSend(t *testing.T) {
 
 func TestGenesisValidate(t *testing.T) {
 	require.NoError(t, types.DefaultGenesis().Validate())
+
+	amt := sdkmath.NewInt
+	total := func(ch string, a int64) types.ReturnedTotal {
+		return types.ReturnedTotal{ChannelId: ch, Amount: amt(a)}
+	}
+	pending := func(ch string, seq uint64, a int64) types.PendingReturn {
+		return types.PendingReturn{ChannelId: ch, Sequence: seq, Amount: amt(a)}
+	}
+	cases := []struct {
+		name    string
+		totals  []types.ReturnedTotal
+		pending []types.PendingReturn
+		ok      bool
+	}{
+		{"covered pending", []types.ReturnedTotal{total("channel-1", 10)}, []types.PendingReturn{pending("channel-1", 1, 4), pending("channel-1", 2, 6)}, true},
+		{"duplicate total", []types.ReturnedTotal{total("channel-1", 1), total("channel-1", 1)}, nil, false},
+		{"negative total", []types.ReturnedTotal{total("channel-1", -1)}, nil, false},
+		{"duplicate pending", []types.ReturnedTotal{total("channel-1", 10)}, []types.PendingReturn{pending("channel-1", 1, 1), pending("channel-1", 1, 1)}, false},
+		{"zero pending", []types.ReturnedTotal{total("channel-1", 10)}, []types.PendingReturn{pending("channel-1", 1, 0)}, false},
+		{"pending above total", []types.ReturnedTotal{total("channel-1", 10)}, []types.PendingReturn{pending("channel-1", 1, 6), pending("channel-1", 2, 6)}, false},
+		{"pending without total", nil, []types.PendingReturn{pending("channel-1", 1, 1)}, false},
+		{"bad pending channel", []types.ReturnedTotal{total("channel-1", 10)}, []types.PendingReturn{pending("07-tendermint-0", 1, 1)}, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			gs := types.DefaultGenesis()
+			gs.ReturnedTotals, gs.PendingReturns = tc.totals, tc.pending
+			if tc.ok {
+				require.NoError(t, gs.Validate())
+			} else {
+				require.Error(t, gs.Validate())
+			}
+		})
+	}
 }

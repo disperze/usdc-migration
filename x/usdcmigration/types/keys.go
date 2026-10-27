@@ -26,4 +26,5 @@ var NobleBech32Prefix = "noble"
 var (
 	ParamsKey           = collections.NewPrefix(0)
 	ReturnedTotalPrefix = collections.NewPrefix(1)
+	PendingReturnPrefix = collections.NewPrefix(2)
 )

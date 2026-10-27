@@ -17,23 +17,12 @@ import (
 // account: Noble releases the matching USDC from the channel escrow to
 // receiver. The packet is sent below this keeper's own SendPacket, so the send
 // block (which also covers the authority) does not apply to it.
-func (k *Keeper) sendReturnPacket(ctx sdk.Context, channelID string, amount math.Int, receiver, memo string, timeoutTimestamp uint64) (uint64, error) {
-	params := k.GetParams(ctx)
+func (k *Keeper) sendReturnPacket(ctx sdk.Context, baseDenom, channelID string, amount math.Int, receiver, memo string, timeoutTimestamp uint64) (uint64, error) {
 	data := transfertypes.NewFungibleTokenPacketData(
-		types.VoucherPath(channelID, params.BaseDenom), amount.String(), k.authority, receiver, memo,
+		types.VoucherPath(channelID, baseDenom), amount.String(), k.authority, receiver, memo,
 	)
 	if err := data.ValidateBasic(); err != nil {
 		return 0, err
 	}
 	return k.ics4Wrapper.SendPacket(ctx, types.TransferPortID, channelID, clienttypes.ZeroHeight(), timeoutTimestamp, data.GetBytes())
-}
-
-// IsReturnPacket reports whether an ICS20 packet sent over sourceChannel is a
-// return to Noble built by MsgReturnToNoble. Since the send block rejects the
-// voucher for every sender, the authority included, only the module can have
-// sent such a packet.
-func (k *Keeper) IsReturnPacket(ctx sdk.Context, sourceChannel, denomPath, sender string) bool {
-	params := k.GetParams(ctx)
-	return sender == k.authority && params.IsNobleChannel(sourceChannel) &&
-		denomPath == types.VoucherPath(sourceChannel, params.BaseDenom)
 }

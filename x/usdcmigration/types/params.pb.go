@@ -36,7 +36,8 @@ type Params struct {
 	// noble_channels with an error acknowledgement.
 	RecvBlockEnabled bool `protobuf:"varint,3,opt,name=recv_block_enabled,json=recvBlockEnabled,proto3" json:"recv_block_enabled,omitempty"`
 	// send_block_enabled rejects outgoing ICS20 transfers of the voucher denom
-	// on any channel unless the sender is the module authority (gov).
+	// on any channel, whoever the sender is (the module authority included).
+	// Only MsgReturnToNoble returns the voucher to Noble.
 	SendBlockEnabled bool `protobuf:"varint,4,opt,name=send_block_enabled,json=sendBlockEnabled,proto3" json:"send_block_enabled,omitempty"`
 }
 

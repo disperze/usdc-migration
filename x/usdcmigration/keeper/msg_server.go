@@ -4,6 +4,7 @@ import (
 	"context"
 	"strconv"
 
+	"cosmossdk.io/collections"
 	errorsmod "cosmossdk.io/errors"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -27,10 +28,7 @@ func (m msgServer) UpdateParams(goCtx context.Context, msg *types.MsgUpdateParam
 	if msg.Authority != m.authority {
 		return nil, errorsmod.Wrapf(types.ErrInvalidAuthority, "expected %s, got %s", m.authority, msg.Authority)
 	}
-	if err := msg.Params.Validate(); err != nil {
-		return nil, errorsmod.Wrap(types.ErrInvalidParams, err.Error())
-	}
-	if err := m.Params.Set(goCtx, msg.Params); err != nil {
+	if err := m.SetParams(goCtx, msg.Params); err != nil {
 		return nil, err
 	}
 
@@ -54,16 +52,19 @@ func (m msgServer) ReturnToNoble(goCtx context.Context, msg *types.MsgReturnToNo
 		return nil, err
 	}
 	if m.ics4Wrapper == nil {
-		return nil, errorsmod.Wrap(types.ErrInvalidParams, "ics4 wrapper not set")
+		return nil, errorsmod.Wrap(types.ErrInvalidState, "ics4 wrapper not set")
 	}
 
 	ctx := sdk.UnwrapSDKContext(goCtx)
-	params := m.GetParams(ctx)
+	params, err := m.GetParams(ctx)
+	if err != nil {
+		return nil, err
+	}
 	if !params.IsNobleChannel(msg.ChannelId) {
 		return nil, errorsmod.Wrapf(types.ErrUnknownChannel, "%s not in %v", msg.ChannelId, params.NobleChannels)
 	}
 
-	denom, _, _, returnCap, err := m.ReturnCap(ctx, msg.ChannelId)
+	info, err := m.ReturnCap(ctx, msg.ChannelId)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +76,7 @@ func (m msgServer) ReturnToNoble(goCtx context.Context, msg *types.MsgReturnToNo
 	// the returned total is released again.
 	amount := msg.Amount
 	if amount.IsZero() {
-		amount = returnCap
+		amount = info.Cap
 	}
 	if !amount.IsPositive() {
 		return nil, types.ErrNothingToReturn
@@ -86,20 +87,26 @@ func (m msgServer) ReturnToNoble(goCtx context.Context, msg *types.MsgReturnToNo
 		timeoutSeconds = types.DefaultTimeoutSeconds
 	}
 	timeoutTimestamp := uint64(ctx.BlockTime().UnixNano()) + timeoutSeconds*1_000_000_000
-	sequence, err := m.sendReturnPacket(ctx, msg.ChannelId, amount, msg.Receiver, msg.Memo, timeoutTimestamp)
+	sequence, err := m.sendReturnPacket(ctx, params.BaseDenom, msg.ChannelId, amount, msg.Receiver, msg.Memo, timeoutTimestamp)
 	if err != nil {
 		return nil, err
 	}
 
+	// Record the packet so its ack or timeout is matched by (channel,
+	// sequence), whatever the params are by then.
+	if err := m.PendingReturns.Set(ctx, collections.Join(msg.ChannelId, sequence), amount); err != nil {
+		return nil, err
+	}
 	if err := m.addReturnedTotal(ctx, msg.ChannelId, amount); err != nil {
 		return nil, err
 	}
+	m.Logger(ctx).Info("return to Noble sent", "channel", msg.ChannelId, "sequence", sequence, "amount", amount.String(), "receiver", msg.Receiver)
 
 	ctx.EventManager().EmitEvent(sdk.NewEvent(
 		types.EventTypeReturnToNoble,
 		sdk.NewAttribute(types.AttributeKeyHeight, strconv.FormatInt(ctx.BlockHeight(), 10)),
 		sdk.NewAttribute(types.AttributeKeyChannelID, msg.ChannelId),
-		sdk.NewAttribute(types.AttributeKeyDenom, denom),
+		sdk.NewAttribute(types.AttributeKeyDenom, info.Denom),
 		sdk.NewAttribute(types.AttributeKeyAmount, amount.String()),
 		sdk.NewAttribute(types.AttributeKeyReceiver, msg.Receiver),
 		sdk.NewAttribute(types.AttributeKeySequence, strconv.FormatUint(sequence, 10)),
@@ -107,7 +114,7 @@ func (m msgServer) ReturnToNoble(goCtx context.Context, msg *types.MsgReturnToNo
 
 	return &types.MsgReturnToNobleResponse{
 		Sequence: sequence,
-		Denom:    denom,
+		Denom:    info.Denom,
 		Amount:   amount,
 	}, nil
 }

@@ -59,7 +59,11 @@ func (k *Keeper) CheckSend(ctx sdk.Context, data []byte) error {
 
 // CheckSendDenom is CheckSend for callers that already decoded the packet (IBC v2).
 func (k *Keeper) CheckSendDenom(ctx sdk.Context, denomPath string) error {
-	if k.GetParams(ctx).ShouldBlockSend(denomPath) {
+	params, err := k.GetParams(ctx)
+	if err != nil {
+		return err
+	}
+	if params.ShouldBlockSend(denomPath) {
 		return errorsmod.Wrapf(types.ErrSendBlocked, "%s can only be returned to Noble with MsgReturnToNoble", denomPath)
 	}
 	return nil

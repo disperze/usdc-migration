@@ -22,7 +22,11 @@ func NewQueryServerImpl(k *Keeper) types.QueryServer {
 
 // Params implements types.QueryServer.
 func (q queryServer) Params(ctx context.Context, _ *types.QueryParamsRequest) (*types.QueryParamsResponse, error) {
-	return &types.QueryParamsResponse{Params: q.GetParams(ctx)}, nil
+	params, err := q.GetParams(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return &types.QueryParamsResponse{Params: params}, nil
 }
 
 // ReturnCap implements types.QueryServer.
@@ -30,17 +34,21 @@ func (q queryServer) ReturnCap(ctx context.Context, req *types.QueryReturnCapReq
 	if req == nil || req.ChannelId == "" {
 		return nil, status.Error(codes.InvalidArgument, "channel_id is required")
 	}
-	if !q.GetParams(ctx).IsNobleChannel(req.ChannelId) {
+	params, err := q.GetParams(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	if !params.IsNobleChannel(req.ChannelId) {
 		return nil, status.Errorf(codes.NotFound, "%s is not a configured Noble channel", req.ChannelId)
 	}
-	denom, supply, returned, returnCap, err := q.Keeper.ReturnCap(ctx, req.ChannelId)
+	info, err := q.Keeper.ReturnCap(ctx, req.ChannelId)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return &types.QueryReturnCapResponse{
-		Denom:         denom,
-		Supply:        supply,
-		ReturnedTotal: returned,
-		Cap:           returnCap,
+		Denom:         info.Denom,
+		Supply:        info.Supply,
+		ReturnedTotal: info.Returned,
+		Cap:           info.Cap,
 	}, nil
 }

@@ -98,7 +98,19 @@ func TestReturnToNobleBuildsPacket(t *testing.T) {
 		"transfer/channel-224/uusdc", "100", k.GetAuthority(), msg.Receiver, "migration",
 	), data)
 
-	require.Equal(t, sdkmath.NewInt(100), k.GetReturnedTotal(ctx, "channel-224"))
+	returned, err := k.GetReturnedTotal(ctx, "channel-224")
+	require.NoError(t, err)
+	require.Equal(t, sdkmath.NewInt(100), returned)
+
+	// The packet is recorded under the sequence the ICS4 wrapper assigned.
+	amt, found, err := k.TakePendingReturn(ctx, "channel-224", res.Sequence)
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Equal(t, sdkmath.NewInt(100), amt)
+	_, found, err = k.TakePendingReturn(ctx, "channel-224", res.Sequence)
+	require.NoError(t, err)
+	require.False(t, found, "taking a pending return removes it")
+
 	_, err = keeper.NewMsgServerImpl(k).ReturnToNoble(ctx, returnMsg(k))
 	require.ErrorIs(t, err, types.ErrNothingToReturn)
 	require.Equal(t, 1, ics4.calls)
@@ -137,5 +149,51 @@ func TestUpdateParams(t *testing.T) {
 
 	_, err = srv.UpdateParams(ctx, &types.MsgUpdateParams{Authority: k.GetAuthority(), Params: p})
 	require.NoError(t, err)
-	require.Equal(t, p, k.GetParams(ctx))
+	got, err := k.GetParams(ctx)
+	require.NoError(t, err)
+	require.Equal(t, p, got)
+}
+
+func TestTakePendingReturnUnknown(t *testing.T) {
+	ctx, k, _ := setup(t, fakeBank{supply: sdkmath.ZeroInt()})
+	_, found, err := k.TakePendingReturn(ctx, "channel-224", 7)
+	require.NoError(t, err)
+	require.False(t, found)
+}
+
+func TestRefundReturnCannotExceedReturnedTotal(t *testing.T) {
+	ctx, k, _ := setup(t, fakeBank{supply: sdkmath.ZeroInt()})
+	err := k.RefundReturn(ctx, "channel-224", 1, sdkmath.NewInt(1), types.RefundReasonTimeout)
+	require.ErrorIs(t, err, types.ErrInvalidState)
+}
+
+func TestSetParamsValidates(t *testing.T) {
+	ctx, k, _ := setup(t, fakeBank{supply: sdkmath.ZeroInt()})
+	p := types.DefaultParams()
+	p.NobleChannels = []string{"channel-1", "channel-1"}
+	require.ErrorIs(t, k.SetParams(ctx, p), types.ErrInvalidParams)
+}
+
+// A params entry that cannot be decoded must surface as an error, not be
+// mistaken for the inert default params.
+func TestCorruptParamsAreNotDefaults(t *testing.T) {
+	key := storetypes.NewKVStoreKey(types.StoreKey)
+	ctx := testutil.DefaultContextWithDB(t, key, storetypes.NewTransientStoreKey("t")).Ctx
+	k := keeper.NewKeeper(moduletestutil.MakeTestEncodingConfig().Codec, runtime.NewKVStoreService(key),
+		fakeBank{supply: sdkmath.ZeroInt()}, &fakeICS4{}, authtypes.NewModuleAddress(govtypes.ModuleName).String())
+	ctx.KVStore(key).Set(types.ParamsKey, []byte{0xff, 0xff, 0xff})
+
+	_, err := k.GetParams(ctx)
+	require.Error(t, err)
+
+	data := transfertypes.NewFungibleTokenPacketData("transfer/channel-224/uusdc", "1", "cosmos1x", "noble1x", "")
+	_, err = k.SendPacket(ctx, types.TransferPortID, "channel-224", clienttypes.ZeroHeight(), 1, data.GetBytes())
+	require.Error(t, err)
+	require.NotErrorIs(t, err, types.ErrSendBlocked)
+
+	_, err = k.ShouldBlockRecv(ctx, "channel-224", "uusdc")
+	require.Error(t, err)
+
+	_, err = keeper.NewQueryServerImpl(k).Params(ctx, &types.QueryParamsRequest{})
+	require.Error(t, err)
 }

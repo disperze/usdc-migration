@@ -71,7 +71,7 @@ storeUpgrades := storetypes.StoreUpgrades{Added: []string{usdcmigrationtypes.Sto
 // in the handler, after RunMigrations:
 params := usdcmigrationtypes.DefaultParams()
 params.NobleChannels = []string{"channel-224"} // this chain's Noble channel
-if err := app.UsdcMigrationKeeper.Params.Set(ctx, params); err != nil {
+if err := app.UsdcMigrationKeeper.SetParams(ctx, params); err != nil { // validates the params
 	return nil, err
 }
 ```

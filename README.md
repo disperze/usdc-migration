@@ -31,8 +31,8 @@ cap = bank supply(voucher) − returned_total(channel)
 
 - While both blocks are on, the voucher supply and Noble's escrow for the channel no longer change, except through the gov return, which does not burn the voucher. Normally they are equal, so `cap` is what Noble can still pay out.
 - The escrow can be above the supply (for example USDC sent straight to the escrow address) or slightly below it. An explicit `amount` is therefore not limited by `cap`: set it to Noble's escrow balance to release all of it. Noble enforces that balance; a larger amount gets an error ack and is handled like any refund below.
-- A return packet is any voucher packet sent by gov on a Noble channel. Gov can no longer send the voucher any other way, so this match is exact.
-- If Noble answers with an error ack, or the packet times out, the middleware does **not** pass the packet on to the transfer module, which would mint the voucher back to gov. Instead it only decreases `returned_total`.
+- Every return packet is recorded by `(channel, sequence)` when it is sent, together with its amount. The middleware matches acks and timeouts against that record, so the match is exact and does not depend on the params: a later change to `noble_channels`, `base_denom` or `send_block_enabled` cannot misclassify a packet. In-flight returns are part of the exported genesis.
+- If Noble answers with an error ack, or the packet times out, the middleware does **not** pass the packet on to the transfer module, which would mint the voucher back to gov. Instead it only decreases `returned_total` by the recorded amount.
 - A retry is just another `MsgReturnToNoble`.
 
 ## Release lines
@@ -70,7 +70,7 @@ Only the ibc-go-specific files differ between the two lines: the middleware, the
 
 **Events:**
 - `usdcmigration_return_to_noble`: `height`, `channel_id`, `denom`, `amount`, `receiver`, `sequence`. The `height` is the reference for the holder snapshot.
-- `usdcmigration_return_refunded`: emitted on an error ack or timeout.
+- `usdcmigration_return_refunded`: `height`, `channel_id`, `sequence`, `amount`, `reason` (`error_ack` or `timeout`).
 - `usdcmigration_params_updated`
 
 ## Governance runbook
@@ -139,12 +139,14 @@ bash scripts/protocgen.sh   # needs buf, protoc-gen-gocosmos, protoc-gen-grpc-ga
 
 **Tests:**
 - `x/usdcmigration/types`: rule tables, and voucher hashes checked against chain-registry.
-- `x/usdcmigration/keeper`: authority, params, the bytes of the return packet, and the send block applying to gov.
+- `x/usdcmigration/keeper`: authority, params, the bytes of the return packet, pending-return records, the send block applying to gov, and undecodable params surfacing as errors.
 - `x/usdcmigration` (end to end, `ibctesting` with three chains):
   - receive block and refund on Noble;
   - send block on v1 and v2, gov included;
   - a return packet draining Noble's escrow, with the voucher supply and all balances unchanged;
   - a return while the voucher is frozen with `SetSendEnabled(false)`;
   - partial returns and the cap;
-  - error-ack and timeout refunds with nothing minted, then a retry.
+  - error-ack and timeout refunds with nothing minted, then a retry;
+  - refunds of a return still in flight when gov changes the params;
+  - genesis export and import with a return in flight.
 - `testing/simapp`: the ibc-go v10.5.0 simapp with this module wired in.
