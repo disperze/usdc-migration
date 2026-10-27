@@ -1,0 +1,12 @@
+version: "2"
+
+linters:
+  exclusions:
+    generated: lax
+    rules:
+      # The test app mirrors ibc-go's simapp, which still wires the
+      # deprecated x/params module for legacy IBC param subspaces.
+      - path: testing/simapp/
+        linters:
+          - staticcheck
+        text: "SA1019:"
