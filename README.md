@@ -38,7 +38,9 @@ The return packet follows the approach used, and tested, for the Evmos shutdown 
 | `master` | `github.com/disperze/usdc-migration/v10` | ≥ v0.53.4 | v10 (≥ v10.5.0) | Agoric, Xion, Coreum, Neutron, Juno |
 | `release/v8.x` | `github.com/disperze/usdc-migration/v8` | ≥ v0.50.10 | v8 (≥ v8.7.0) | Terra2, Haqq, Impacthub (ixo), Archway |
 
-Only the ibc-go-specific files differ between the two lines: the middleware and the ICS4 wrapper. The v8 line has no IBC v2 wrapper.
+Only the ibc-go-specific files differ between the two lines: the middleware, the ICS4 wrapper, the return packet and the expected keepers. The v8 line has no IBC v2 wrapper. Two more differences on v8:
+- `NewKeeper` also takes the transfer module's scoped keeper, which the return packet needs for the channel capability.
+- The middleware also reads ICS29 incentivized acks, so a refund on a fee-enabled channel is still caught.
 
 Releases are tagged `v10.x.y` on `master` and `v8.x.y` on `release/v8.x`. See [CHANGELOG.md](CHANGELOG.md).
 
@@ -66,7 +68,7 @@ Releases are tagged `v10.x.y` on `master` and `v8.x.y` on `release/v8.x`. See [C
 **Events:**
 - `usdcmigration_return_to_noble`: `height`, `channel_id`, `denom`, `amount`, `receiver`, `sequence`. The `height` is the reference for the holder snapshot.
 - `usdcmigration_return_refunded`: `height`, `channel_id`, `sequence`, `amount`, `reason` (`error_ack` or `timeout`).
-- `usdcmigration_params_updated`
+- `usdcmigration_params_updated`: `height`.
 
 ## Governance runbook
 

@@ -21,7 +21,7 @@ Queried on 2026-10-18 (Neutron on 2026-10-26) from each chain's `cosmos/gov/v1/p
 | Impacthub (ixo) | `ixo-5` | **10,000 IXO** (`10000000000uixo`) | 10% = 1,000 IXO | 2 days | 5 days | 33.4% |
 | Archway | `archway-1` | **5,000 ARCH** (`5000000000000000000000aarch`) | none | 14 days | 7 days | 33.4% |
 
-"Initial deposit at submit" is `min_initial_deposit_ratio × min_deposit`: the smallest deposit the chain accepts when the proposal is submitted. Every chain's threshold is 50%. The deposit is refunded unless the proposal is vetoed (or doesn't reach quorum, on chains that burn deposits for that).
+"Initial deposit at submit" is `min_initial_deposit_ratio × min_deposit`: the smallest deposit the chain accepts when the proposal is submitted. The vote threshold (`threshold` in the gov params) is 50% on every chain. The deposit is refunded unless the proposal is vetoed (or doesn't reach quorum, on chains that burn deposits for that).
 
 Expedited proposals (1-day voting) are not used in the scaffolds. On Agoric and Archway `expedited_min_deposit` is set in `stake`, a denom that doesn't exist on those chains, so expedited proposals can't be submitted there at all.
 
@@ -84,7 +84,7 @@ Then:
 
 Notes:
 
-- **Keep the message order.** On Neutron the rate-limit removal comes first. The return comes before the freeze. On `main` the return packet involves no bank send, so the order doesn't matter there. On the v8 line, the transfer keeper checks `SendEnabled` until the return packet is ported, so a freeze placed first would make the return fail.
+- **Keep the message order.** On Neutron the rate-limit removal must come before the return, otherwise the rate limit rejects the return packet. The return comes before the freeze. On both release lines the return packet involves no bank send, so `SendEnabled` does not apply to it and a freeze placed first would not block it.
 - **`timeout_seconds` is `86400`** (1 day), which gives relayers time. The maximum is 7 days. If the packet times out, Noble's escrow is untouched, and the retry is a new proposal with only `MsgReturnToNoble`. The voucher stays frozen.
 - **Leave `memo` empty** (see [integration.md](../integration.md)).
 - **Coreum** mainnet runs `v7.0.0` today, but integration.md analysed tx-chain v8. Re-check the wiring against the release the upgrade starts from.
