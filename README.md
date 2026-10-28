@@ -125,7 +125,7 @@ Gov may stay a blocked address: the return never sends from, or refunds to, the 
 
 ## Development
 
-The SDK v0.50.10 dependency graph (bytedance/sonic v1.14) does not build with Go ≥ 1.25, so use Go 1.24:
+`go.mod` keeps each dependency at the lowest version Cosmos SDK v0.50.10 and ibc-go v8.7.0 need, so importing the module does not bump a chain's dependencies. Don't raise one unless the module needs it. CI runs Go 1.24:
 
 ```sh
 export GOTOOLCHAIN=go1.24.9
