@@ -40,8 +40,8 @@ func (m *MsgReturnToNoble) ValidateBasic() error {
 	if hrp != NobleBech32Prefix {
 		return errorsmod.Wrapf(ErrInvalidReceiver, "expected %s prefix, got %s", NobleBech32Prefix, hrp)
 	}
-	if m.Amount.IsNil() || m.Amount.IsNegative() {
-		return errorsmod.Wrap(ErrInvalidAmount, "amount must be zero (all) or positive")
+	if m.Amount.IsNil() || !m.Amount.IsPositive() {
+		return errorsmod.Wrap(ErrInvalidAmount, "amount must be positive")
 	}
 	if m.TimeoutSeconds > MaxTimeoutSeconds {
 		return errorsmod.Wrapf(ErrInvalidTimeout, "timeout_seconds must be <= %d", MaxTimeoutSeconds)

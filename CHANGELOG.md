@@ -19,9 +19,10 @@ First release, to be tagged `v10.0.0`.
 - Send block: outgoing transfers of the Noble USDC voucher are rejected on every
   channel and for every sender, on IBC v1 and IBC v2 (`x/usdcmigration/v2`).
 - `MsgReturnToNoble` (gov only): sends the return packet straight to the next
-  ICS4 wrapper so Noble releases the channel escrow to a receiver, with a return
-  cap (`supply − returned_total`) and refund handling on error ack or timeout.
-- `MsgUpdateParams` (gov only), queries `params` and `return-cap`, and the
+  ICS4 wrapper so Noble releases the given amount of the channel escrow to a
+  receiver, with refund handling on error ack or timeout. The module keeps no
+  return state; Noble's escrow balance is the only limit.
+- `MsgUpdateParams` (gov only), query `params`, and the
   `usdcmigration_return_to_noble`, `usdcmigration_return_refunded` and
   `usdcmigration_params_updated` events.
 - Apache-2.0 `LICENSE`.

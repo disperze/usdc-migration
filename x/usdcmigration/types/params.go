@@ -52,22 +52,15 @@ func (p Params) ShouldBlockRecv(destChannel, packetDenom string) bool {
 	return p.RecvBlockEnabled && packetDenom == p.BaseDenom && p.IsNobleChannel(destChannel)
 }
 
-// IsVoucherPath reports whether denomPath (full ICS20 path, as written in an
-// outgoing packet) is the voucher of base_denom received over a Noble channel.
-func (p Params) IsVoucherPath(denomPath string) bool {
-	for _, ch := range p.NobleChannels {
-		if denomPath == VoucherPath(ch, p.BaseDenom) {
-			return true
-		}
-	}
-	return false
-}
-
-// ShouldBlockSend reports whether an outgoing ICS20 packet must be rejected:
-// the voucher may not leave the chain over any channel, whoever the sender is
-// (the authority included). Only MsgReturnToNoble returns it to Noble.
+// ShouldBlockSend reports whether an outgoing ICS20 packet with denomPath (full
+// ICS20 path, as written in the packet) must be rejected: the voucher of
+// base_denom received over a Noble channel may not leave the chain over any
+// channel, whoever the sender is (the authority included). Only
+// MsgReturnToNoble returns it to Noble.
 func (p Params) ShouldBlockSend(denomPath string) bool {
-	return p.SendBlockEnabled && p.IsVoucherPath(denomPath)
+	return p.SendBlockEnabled && slices.ContainsFunc(p.NobleChannels, func(ch string) bool {
+		return denomPath == VoucherPath(ch, p.BaseDenom)
+	})
 }
 
 // validateChannelID mirrors ibc-go's host.ChannelIdentifierValidator

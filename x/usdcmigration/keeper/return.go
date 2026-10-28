@@ -1,7 +1,7 @@
 package keeper
 
 import (
-	"cosmossdk.io/math"
+	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
@@ -11,20 +11,27 @@ import (
 	"github.com/disperze/usdc-migration/v10/x/usdcmigration/types"
 )
 
-// sendReturnPacket builds the ICS20 packet that returns amount of the Noble
-// voucher over channelID and hands it to the next ICS4 wrapper. Unlike a
-// transfer keeper send, no voucher is burned from, or escrowed for, any
-// account: Noble releases the matching USDC from the channel escrow to
-// receiver. The packet is sent below this keeper's own SendPacket, so the send
-// block (which also covers the authority) does not apply to it.
-func (k *Keeper) sendReturnPacket(ctx sdk.Context, baseDenom, channelID string, amount math.Int, receiver, memo string, timeoutTimestamp uint64) (uint64, error) {
+// sendReturnPacket builds the ICS20 packet of msg that returns the Noble
+// voucher and hands it to the next ICS4 wrapper. Unlike a transfer
+// keeper send, no voucher is burned from, or escrowed for, any account: Noble
+// releases the matching USDC from the channel escrow to the receiver. The
+// packet is sent below this keeper's own SendPacket, so the send block (which
+// also covers the authority) does not apply to it.
+func (k *Keeper) sendReturnPacket(ctx sdk.Context, msg *types.MsgReturnToNoble, baseDenom string) (uint64, error) {
 	data := transfertypes.NewFungibleTokenPacketData(
-		types.VoucherPath(channelID, baseDenom), amount.String(), k.authority, receiver, memo,
+		types.VoucherPath(msg.ChannelId, baseDenom), msg.Amount.String(), k.authority, msg.Receiver, msg.Memo,
 	)
 	if err := data.ValidateBasic(); err != nil {
 		return 0, err
 	}
-	return k.ics4Wrapper.SendPacket(ctx, types.TransferPortID, channelID, clienttypes.ZeroHeight(), timeoutTimestamp, data.GetBytes())
+
+	timeoutSeconds := msg.TimeoutSeconds
+	if timeoutSeconds == 0 {
+		timeoutSeconds = types.DefaultTimeoutSeconds
+	}
+	timeout := uint64(ctx.BlockTime().Add(time.Duration(timeoutSeconds) * time.Second).UnixNano())
+
+	return k.ics4Wrapper.SendPacket(ctx, types.TransferPortID, msg.ChannelId, clienttypes.ZeroHeight(), timeout, data.GetBytes())
 }
 
 // IsReturnPacket reports whether an ICS20 packet sent over sourceChannel is a
