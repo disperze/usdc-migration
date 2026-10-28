@@ -8,7 +8,7 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
-First release of the ibc-go v8 line, to be tagged `v8.0.0`.
+## [v8.0.0] - 2026-10-28
 
 ### Added
 
