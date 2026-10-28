@@ -8,7 +8,7 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
-First release, to be tagged `v10.0.0`.
+## [v10.0.0] - 2026-10-28
 
 ### Added
 
