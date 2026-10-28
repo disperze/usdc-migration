@@ -68,7 +68,7 @@ Releases are tagged `v10.x.y` on `master` and `v8.x.y` on `release/v8.x`. See [C
 **Events:**
 - `usdcmigration_return_to_noble`: `height`, `channel_id`, `denom`, `amount`, `receiver`, `sequence`. The `height` is the reference for the holder snapshot.
 - `usdcmigration_return_refunded`: `height`, `channel_id`, `sequence`, `amount`, `reason` (`error_ack` or `timeout`).
-- `usdcmigration_params_updated`
+- `usdcmigration_params_updated`: `height`.
 
 ## Governance runbook
 
@@ -125,7 +125,7 @@ Gov may stay a blocked address: the return never sends from, or refunds to, the 
 
 ## Development
 
-The SDK v0.53.4 dependency graph (bytedance/sonic v1.14) does not build with Go ≥ 1.25, so use Go 1.24:
+The SDK v0.50.10 dependency graph (bytedance/sonic v1.14) does not build with Go ≥ 1.25, so use Go 1.24:
 
 ```sh
 export GOTOOLCHAIN=go1.24.9
@@ -138,13 +138,13 @@ bash scripts/protocgen.sh   # needs buf, protoc-gen-gocosmos, protoc-gen-grpc-ga
 - `x/usdcmigration/keeper`: authority, params, the bytes of the return packet, and the send block applying to gov.
 - `x/usdcmigration` (end to end, `ibctesting` with three chains):
   - receive block and refund on Noble;
-  - send block on v1 and v2, gov included;
+  - send block, gov included;
   - a return packet draining Noble's escrow, with the voucher supply and all balances unchanged;
   - a return while the voucher is frozen with `SetSendEnabled(false)`;
   - partial returns, an amount above Noble's escrow, and an escrow above the voucher supply;
   - error-ack and timeout refunds with nothing minted, then a retry.
   - v8 only: an error ack on an ICS29 fee-enabled channel. The keeper tests also cover the channel capability check.
-- `testing/simapp`: the ibc-go v10.5.0 simapp with this module wired in.
+- `testing/simapp`: the ibc-go v8.7.0 simapp with this module wired in.
 
 ## License
 
