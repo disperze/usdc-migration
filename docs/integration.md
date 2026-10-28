@@ -37,6 +37,7 @@ usdcmigrationtypes.StoreKey,
 app.UsdcMigrationKeeper = usdcmigrationkeeper.NewKeeper(
 	appCodec, runtime.NewKVStoreService(keys[usdcmigrationtypes.StoreKey]),
 	<previous transfer ICS4Wrapper>, // e.g. app.PacketForwardKeeper or app.IBCKeeper.ChannelKeeper
+	scopedTransferKeeper,            // v8 only: the transfer module's scoped keeper
 	authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 )
 
@@ -61,6 +62,8 @@ usdcmigration.NewAppModule(app.UsdcMigrationKeeper),
   - With our keeper fixed in the constructor, every copy points at the same `*Keeper`. Re-pointing its inner wrapper later then reaches all of them.
   - `MsgReturnToNoble` sends through that inner wrapper, so a late `WithICS4Wrapper(cbStack)` must be kept. Otherwise returns would skip `cbStack`.
 - **No module account permissions and no blocked-address changes.** The return builds the ICS20 packet itself, so nothing is minted, burned or sent from the gov account. Gov may stay in the bank keeper's blocked addresses.
+- **v8: pass the transfer module's scoped keeper** (`app.CapabilityKeeper.ScopeToModule(ibctransfertypes.ModuleName)`, often `app.ScopedTransferKeeper`). The return packet is sent with the transfer module's channel capability. Without it, `MsgReturnToNoble` fails with `ErrChannelCapabilityNotFound`.
+- **v8, ICS29 fees:** when ibc-fee sits under this middleware (Archway, ixo), the error ack of a return packet is read through the incentivized ack and never reaches ibc-fee. If someone paid relayer fees for that packet, they stay in fee escrow. Noble channels are normally not fee-enabled.
 - **Do not change params while a return is in flight.** <a id="do-not-change-params-while-a-return-is-in-flight"></a>
   - After `MsgReturnToNoble` executes, do not submit `MsgUpdateParams` until the return packet has settled: Noble acknowledged it, or it was refunded (`usdcmigration_return_refunded` event after an error ack or timeout).
   - This applies in particular to `noble_channels`, `base_denom` and `send_block_enabled`. Acks and timeouts are recognised as return packets by comparing them with the **current** params (sender is gov, channel is a Noble channel, denom is the voucher). If a param changed in between, an error ack or timeout would no longer be recognised and would reach the transfer module, which refunds gov by minting the voucher back, unbacked.
