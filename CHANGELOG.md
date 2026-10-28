@@ -13,7 +13,10 @@ First release of the ibc-go v8 line, to be tagged `v8.0.0`.
 ### Added
 
 - `x/usdcmigration` module and ICS20 IBC middleware for winding down the Noble
-  USDC voucher. Requires Cosmos SDK ≥ v0.50.10 and ibc-go ≥ v8.7.0.
+  USDC voucher. Requires Cosmos SDK ≥ v0.50.10 and ibc-go ≥ v8.7.0. `go.mod`
+  requires only the versions those two need (e.g. `cosmossdk.io/api` v0.7.5,
+  `x/tx` v0.13.5, `collections` v0.4.0, gRPC v1.64.1), so adding the module
+  does not bump a v0.50 chain's dependencies.
 - Receive block: `base_denom` packets from a configured Noble channel get an
   error acknowledgement, so Noble refunds the sender.
 - Send block: outgoing transfers of the Noble USDC voucher are rejected on every
