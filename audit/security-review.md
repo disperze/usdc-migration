@@ -1,8 +1,11 @@
 # `x/usdcmigration`: Security Review
 
 **Scope:** `disperze/usdc-migration@2f93210` (`master`, release line v10): `x/usdcmigration/**` (module, keeper, ICS20 middleware, IBC v2 middleware), `proto/usdcmigration/v1/*`, plus the documented wiring in `README.md` and `docs/integration.md`. `testing/simapp` was used as the reference app. Out of scope: the `release/v8.x` line, each chain's real `app.go`, the off-chain repayment, and upstream Cosmos SDK, ibc-go and CometBFT (except where noted).
+
 **Track:** B (Cosmos SDK v0.53.x / ibc-go v10.x). Pinned: `cosmos-sdk v0.53.4`, `ibc-go/v10 v10.5.0`, `cometbft v0.38.17`, `cosmos/gogoproto v1.7.0`, Go 1.24.
+
 **Date:** 2026-10-28.
+
 **Method:** the `cosmos-ibc-audit` workflow: recon (`detect_versions.py`, `app_wiring.py`), threat model, mechanical scan (`scan.py`), the ABCI/determinism, SDK-module, IBC-apps/middleware and known-vulnerability checklists, then PoC tests on a three-chain `ibctesting` setup with the repo's simapp. `govulncheck` was also run.
 
 ## Summary
