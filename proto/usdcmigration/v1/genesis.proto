@@ -2,7 +2,6 @@ syntax = "proto3";
 package usdcmigration.v1;
 
 import "amino/amino.proto";
-import "cosmos_proto/cosmos.proto";
 import "gogoproto/gogo.proto";
 import "usdcmigration/v1/params.proto";
 
@@ -13,17 +12,5 @@ message GenesisState {
   Params params = 1 [
     (gogoproto.nullable) = false,
     (amino.dont_omitempty) = true
-  ];
-  repeated ReturnedTotal returned_totals = 2 [(gogoproto.nullable) = false];
-}
-
-// ReturnedTotal is the amount of voucher sent back to Noble over a channel
-// that has not been refunded (error ack or timeout).
-message ReturnedTotal {
-  string channel_id = 1;
-  string amount = 2 [
-    (cosmos_proto.scalar) = "cosmos.Int",
-    (gogoproto.customtype) = "cosmossdk.io/math.Int",
-    (gogoproto.nullable) = false
   ];
 }

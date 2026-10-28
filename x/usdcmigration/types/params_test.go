@@ -5,8 +5,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	sdkmath "cosmossdk.io/math"
-
 	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
 
 	"github.com/disperze/usdc-migration/v8/x/usdcmigration/types"
@@ -105,28 +103,7 @@ func TestShouldBlockSend(t *testing.T) {
 func TestGenesisValidate(t *testing.T) {
 	require.NoError(t, types.DefaultGenesis().Validate())
 
-	total := func(ch string, a int64) types.ReturnedTotal {
-		return types.ReturnedTotal{ChannelId: ch, Amount: sdkmath.NewInt(a)}
-	}
-	cases := []struct {
-		name   string
-		totals []types.ReturnedTotal
-		ok     bool
-	}{
-		{"valid", []types.ReturnedTotal{total("channel-1", 10), total("channel-2", 0)}, true},
-		{"duplicate total", []types.ReturnedTotal{total("channel-1", 1), total("channel-1", 1)}, false},
-		{"negative total", []types.ReturnedTotal{total("channel-1", -1)}, false},
-		{"bad channel", []types.ReturnedTotal{total("07-tendermint-0", 1)}, false},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			gs := types.DefaultGenesis()
-			gs.ReturnedTotals = tc.totals
-			if tc.ok {
-				require.NoError(t, gs.Validate())
-			} else {
-				require.Error(t, gs.Validate())
-			}
-		})
-	}
+	gs := types.DefaultGenesis()
+	gs.Params.NobleChannels = []string{"07-tendermint-0"}
+	require.Error(t, gs.Validate())
 }

@@ -36,7 +36,6 @@ usdcmigrationtypes.StoreKey,
 //    MsgReturnToNoble sends its packet through this wrapper as well.
 app.UsdcMigrationKeeper = usdcmigrationkeeper.NewKeeper(
 	appCodec, runtime.NewKVStoreService(keys[usdcmigrationtypes.StoreKey]),
-	app.BankKeeper,
 	<previous transfer ICS4Wrapper>, // e.g. app.PacketForwardKeeper or app.IBCKeeper.ChannelKeeper
 	scopedTransferKeeper,            // v8 only: the transfer module's scoped keeper
 	authtypes.NewModuleAddress(govtypes.ModuleName).String(),
@@ -53,7 +52,7 @@ transferStack = usdcmigration.NewIBCMiddleware(app.UsdcMigrationKeeper, transfer
 ibcv2TransferStack = usdcmigrationv2.NewIBCMiddleware(app.UsdcMigrationKeeper, ibcv2TransferStack)
 
 // 5. Module manager + InitGenesis/ExportGenesis order (after transfer):
-usdcmigration.NewAppModule(appCodec, app.UsdcMigrationKeeper),
+usdcmigration.NewAppModule(app.UsdcMigrationKeeper),
 ```
 
 **Rules that matter:**

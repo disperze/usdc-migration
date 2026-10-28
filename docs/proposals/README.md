@@ -41,7 +41,7 @@ Expedited proposals (1-day voting) are not used in the scaffolds. On Agoric and 
 
 The source channel is the chain's end of its transfer channel to Noble, and the value set in `noble_channels`. The Noble channel is the counterparty, taken from the [chain registry `_IBC` files](https://github.com/cosmos/chain-registry/tree/master/_IBC). The escrow address is `sha256("ics20-1" + 0x00 + "transfer/<noble channel>")[:20]` in bech32 `noble`, and matches Noble's `ibc/apps/transfer/v1/channels/<noble channel>/ports/transfer/escrow_address`. Balances are its `uusdc` balance at Noble height 62,477,983 (Neutron's at 62,493,049).
 
-The return cap (`amount: "0"`) is the voucher supply on the source chain, not the escrow balance. They are equal on Xion, Coreum, Haqq and ixo, so those scaffolds use `"0"`. Elsewhere the scaffold sets `amount` to the escrow balance in `uusdc`, which the module accepts even above the cap:
+Every scaffold sets `amount` (required) to the escrow balance in `uusdc` at that height. The voucher supply on the source chain is not a substitute: it matches the escrow on Xion, Coreum, Haqq and ixo, but not elsewhere:
 
 | Chain | Voucher supply | Noble escrow | `amount` |
 |---|---|---|---|
@@ -50,7 +50,7 @@ The return cap (`amount: "0"`) is the voucher supply on the source chain, not th
 | Terra2 | 310,071.86 | 311,071.38 | `311071376277` |
 | Archway | 33,623.14 | 33,621.45 | `33621448005` |
 
-On Agoric, Neutron and Terra2 this releases the escrow above the supply too. On Archway the supply is above the escrow, so `"0"` would ask Noble for more than it holds. Noble refunds any amount above the escrow balance (error ack). The escrow only stops moving at the upgrade height, so set these amounts again from Noble after the upgrade, once pending packets are relayed (step 1 of [Before submitting](#before-submitting)).
+On Agoric, Neutron and Terra2 the escrow is above the supply; on Archway it is below. Noble refunds any amount above the escrow balance (error ack), so a stale, too-high amount releases nothing. The escrow only stops moving at the upgrade height, so set every `amount` again from Noble after the upgrade, once pending packets are relayed (step 1 of [Before submitting](#before-submitting)).
 
 Every voucher denom in the scaffolds matches `query ibc-transfer denom-hash transfer/<channel>/uusdc` on that chain. That includes the three that are computed rather than taken from the chain registry (Coreum, Haqq, ixo).
 
@@ -72,7 +72,7 @@ Then:
    ```
 
    Run the query again until it reports no unreceived packets or acks on either side. Then read the final escrow balance.
-2. Check the cap: `<binary> query usdcmigration return-cap <channel>`, and Noble's escrow balance for the counterparty channel. If they differ, set `amount` to the escrow balance (Agoric, Neutron, Terra2 and Archway already do); if they are equal, `"0"` returns it all.
+2. Set `amount` to Noble's final escrow balance for the counterparty channel: `GET <noble-rest>/cosmos/bank/v1beta1/balances/<escrow address>/by_denom?denom=uusdc`.
 3. Submit:
 
    ```sh
@@ -85,7 +85,7 @@ Then:
 Notes:
 
 - **Keep the message order.** On Neutron the rate-limit removal comes first. The return comes before the freeze. On `main` the return packet involves no bank send, so the order doesn't matter there. On the v8 line, the transfer keeper checks `SendEnabled` until the return packet is ported, so a freeze placed first would make the return fail.
-- **`timeout_seconds` is `86400`** (1 day), which gives relayers time. The maximum is 7 days. If the packet times out, the cap is restored, and the retry is a new proposal with only `MsgReturnToNoble`. The voucher stays frozen.
+- **`timeout_seconds` is `86400`** (1 day), which gives relayers time. The maximum is 7 days. If the packet times out, Noble's escrow is untouched, and the retry is a new proposal with only `MsgReturnToNoble`. The voucher stays frozen.
 - **Leave `memo` empty** (see [integration.md](../integration.md)).
 - **Coreum** mainnet runs `v7.0.0` today, but integration.md analysed tx-chain v8. Re-check the wiring against the release the upgrade starts from.
 - **Agoric**: coordinate the date with the Fast USDC operators. The freeze stops Fast USDC flows that use this voucher.

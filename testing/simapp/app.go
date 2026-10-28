@@ -482,7 +482,6 @@ func NewSimApp(
 	// ICS4Wrapper, so every ICS20 send passes through it.
 	app.UsdcMigrationKeeper = usdcmigrationkeeper.NewKeeper(
 		appCodec, runtime.NewKVStoreService(keys[usdcmigrationtypes.StoreKey]),
-		app.BankKeeper,
 		app.IBCFeeKeeper,
 		scopedTransferKeeper,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
@@ -622,7 +621,7 @@ func NewSimApp(
 		// IBC modules
 		ibc.NewAppModule(app.IBCKeeper),
 		transfer.NewAppModule(app.TransferKeeper),
-		usdcmigration.NewAppModule(appCodec, app.UsdcMigrationKeeper),
+		usdcmigration.NewAppModule(app.UsdcMigrationKeeper),
 		ibcfee.NewAppModule(app.IBCFeeKeeper),
 		ica.NewAppModule(&app.ICAControllerKeeper, &app.ICAHostKeeper),
 		ibctm.NewAppModule(),

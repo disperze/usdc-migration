@@ -129,8 +129,9 @@ type MsgReturnToNoble struct {
 	ChannelId string `protobuf:"bytes,2,opt,name=channel_id,json=channelId,proto3" json:"channel_id,omitempty"`
 	// receiver is the Noble address (multisig) that receives the unescrowed USDC.
 	Receiver string `protobuf:"bytes,3,opt,name=receiver,proto3" json:"receiver,omitempty"`
-	// amount of voucher to return. Zero returns the whole remaining cap. A
-	// non-zero amount may exceed the cap, up to Noble's escrow for the channel.
+	// amount of USDC to release from Noble's escrow for the channel. Must be
+	// positive; set it to the escrow balance to withdraw everything. Noble
+	// answers an amount above the escrow balance with an error ack.
 	Amount cosmossdk_io_math.Int `protobuf:"bytes,4,opt,name=amount,proto3,customtype=cosmossdk.io/math.Int" json:"amount"`
 	// timeout_seconds is added to the block time to build the packet timeout.
 	TimeoutSeconds uint64 `protobuf:"varint,5,opt,name=timeout_seconds,json=timeoutSeconds,proto3" json:"timeout_seconds,omitempty"`
@@ -322,9 +323,9 @@ const _ = grpc.SupportPackageIsVersion4
 type MsgClient interface {
 	// UpdateParams updates the module parameters. Authority only (gov).
 	UpdateParams(ctx context.Context, in *MsgUpdateParams, opts ...grpc.CallOption) (*MsgUpdateParamsResponse, error)
-	// ReturnToNoble sends an ICS20 packet returning the outstanding voucher
-	// supply to Noble, releasing the USDC held in Noble's escrow for the channel
-	// to the given receiver. No voucher is minted, burned or moved on this
+	// ReturnToNoble sends an ICS20 packet returning amount of the voucher to
+	// Noble, releasing that much USDC from Noble's escrow for the channel to the
+	// given receiver. No voucher is minted, burned or moved on this
 	// chain. Authority only (gov).
 	ReturnToNoble(ctx context.Context, in *MsgReturnToNoble, opts ...grpc.CallOption) (*MsgReturnToNobleResponse, error)
 }
@@ -359,9 +360,9 @@ func (c *msgClient) ReturnToNoble(ctx context.Context, in *MsgReturnToNoble, opt
 type MsgServer interface {
 	// UpdateParams updates the module parameters. Authority only (gov).
 	UpdateParams(context.Context, *MsgUpdateParams) (*MsgUpdateParamsResponse, error)
-	// ReturnToNoble sends an ICS20 packet returning the outstanding voucher
-	// supply to Noble, releasing the USDC held in Noble's escrow for the channel
-	// to the given receiver. No voucher is minted, burned or moved on this
+	// ReturnToNoble sends an ICS20 packet returning amount of the voucher to
+	// Noble, releasing that much USDC from Noble's escrow for the channel to the
+	// given receiver. No voucher is minted, burned or moved on this
 	// chain. Authority only (gov).
 	ReturnToNoble(context.Context, *MsgReturnToNoble) (*MsgReturnToNobleResponse, error)
 }

@@ -21,7 +21,8 @@ var _ porttypes.ICS4Wrapper = (*Keeper)(nil)
 // SendPacket rejects ICS20 packets carrying the Noble voucher, whoever the
 // sender is, then forwards to the next ICS4 wrapper. The check runs before
 // forwarding so a rejected packet never gets a sequence or commitment.
-// MsgReturnToNoble sends directly to the next wrapper and is not affected.
+// Data that is not ICS20 is not checked. MsgReturnToNoble sends directly to
+// the next wrapper and is not affected.
 func (k *Keeper) SendPacket(
 	ctx sdk.Context,
 	chanCap *capabilitytypes.Capability,
@@ -31,8 +32,9 @@ func (k *Keeper) SendPacket(
 	timeoutTimestamp uint64,
 	data []byte,
 ) (uint64, error) {
-	if sourcePort == types.TransferPortID {
-		if err := k.CheckSend(ctx, data); err != nil {
+	var packet transfertypes.FungibleTokenPacketData
+	if sourcePort == types.TransferPortID && json.Unmarshal(data, &packet) == nil {
+		if err := k.CheckSend(ctx, packet.Denom); err != nil {
 			return 0, err
 		}
 	}
@@ -49,15 +51,11 @@ func (k *Keeper) GetAppVersion(ctx sdk.Context, portID, channelID string) (strin
 	return k.ics4Wrapper.GetAppVersion(ctx, portID, channelID)
 }
 
-// CheckSend returns ErrSendBlocked if the ICS20 packet data carries the
-// Noble voucher. Data that is not ICS20 is ignored.
-func (k *Keeper) CheckSend(ctx sdk.Context, data []byte) error {
-	var packet transfertypes.FungibleTokenPacketData
-	if err := json.Unmarshal(data, &packet); err != nil {
-		return nil
-	}
-	if k.GetParams(ctx).ShouldBlockSend(packet.Denom) {
-		return errorsmod.Wrapf(types.ErrSendBlocked, "%s can only be returned to Noble with MsgReturnToNoble", packet.Denom)
+// CheckSend returns ErrSendBlocked if denomPath, the full ICS20 denom path of
+// an outgoing packet, is the Noble voucher.
+func (k *Keeper) CheckSend(ctx sdk.Context, denomPath string) error {
+	if k.GetParams(ctx).ShouldBlockSend(denomPath) {
+		return errorsmod.Wrapf(types.ErrSendBlocked, "%s can only be returned to Noble with MsgReturnToNoble", denomPath)
 	}
 	return nil
 }

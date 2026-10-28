@@ -5,7 +5,7 @@
       "authority": "haqq10d07y265gmmuvt4z0w9aw880jnsr700jc9xkg9",
       "channel_id": "channel-4",
       "receiver": "noble1REPLACE_WITH_MULTISIG",
-      "amount": "0",
+      "amount": "68769508250",
       "timeout_seconds": "86400",
       "memo": ""
     },
@@ -24,6 +24,6 @@
   "metadata": "ipfs://REPLACE_WITH_METADATA_CID",
   "deposit": "6000000000000000000000aISLM",
   "title": "Return Noble USDC escrow to the migration multisig and freeze the Haqq USDC voucher",
-  "summary": "Circle ends USDC support on Noble; the full pause is on 2027-01-12. This proposal returns all Noble USDC vouchers (ibc/BFF0D3805B50D93E2FA5C0B2DDF7E0B30A631076CD80BC12A48C0E95404B4A41) still in circulation on Haqq to Noble over channel-4 (MsgReturnToNoble, amount 0 = the full return cap), releasing the matching USDC from Noble escrow to the multisig noble1REPLACE_WITH_MULTISIG. In the same execution it disables bank sends of the voucher, so the holder snapshot is the height emitted by the usdcmigration_return_to_noble event. Holders are repaid off-chain from that snapshot: REPLACE_WITH_REPAYMENT_PLAN_URL.",
+  "summary": "Circle ends USDC support on Noble; the full pause is on 2027-01-12. This proposal returns Noble's full USDC escrow for Haqq (68,769.508250 USDC, Noble channel-32) to the multisig noble1REPLACE_WITH_MULTISIG over channel-4 (MsgReturnToNoble with that explicit amount), covering all Noble USDC vouchers (ibc/BFF0D3805B50D93E2FA5C0B2DDF7E0B30A631076CD80BC12A48C0E95404B4A41) still in circulation on Haqq. In the same execution it disables bank sends of the voucher, so the holder snapshot is the height emitted by the usdcmigration_return_to_noble event. Holders are repaid off-chain from that snapshot: REPLACE_WITH_REPAYMENT_PLAN_URL.",
   "expedited": false
 }

@@ -16,9 +16,9 @@ service Msg {
   // UpdateParams updates the module parameters. Authority only (gov).
   rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
 
-  // ReturnToNoble sends an ICS20 packet returning the outstanding voucher
-  // supply to Noble, releasing the USDC held in Noble's escrow for the channel
-  // to the given receiver. No voucher is minted, burned or moved on this
+  // ReturnToNoble sends an ICS20 packet returning amount of the voucher to
+  // Noble, releasing that much USDC from Noble's escrow for the channel to the
+  // given receiver. No voucher is minted, burned or moved on this
   // chain. Authority only (gov).
   rpc ReturnToNoble(MsgReturnToNoble) returns (MsgReturnToNobleResponse);
 }
@@ -48,8 +48,9 @@ message MsgReturnToNoble {
   string channel_id = 2;
   // receiver is the Noble address (multisig) that receives the unescrowed USDC.
   string receiver = 3;
-  // amount of voucher to return. Zero returns the whole remaining cap. A
-  // non-zero amount may exceed the cap, up to Noble's escrow for the channel.
+  // amount of USDC to release from Noble's escrow for the channel. Must be
+  // positive; set it to the escrow balance to withdraw everything. Noble
+  // answers an amount above the escrow balance with an error ack.
   string amount = 4 [
     (cosmos_proto.scalar) = "cosmos.Int",
     (gogoproto.customtype) = "cosmossdk.io/math.Int",
