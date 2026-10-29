@@ -1,20 +1,21 @@
 # Repayment plan
 
-Holders of the Noble USDC voucher are repaid in **USDC (Injective)**, 1:1. Each chain picks one of two options:
+Holders of the Noble USDC voucher are repaid in **USDC (Injective)**, 1:1. Each chain picks one of three options:
 
 1. **[Redemption contract](#option-1-redemption-contract)**, on chains that support smart contracts: holders swap the old voucher for the new USDC in a contract, at any time.
 2. **[Distribution in a software upgrade](#option-2-distribution-in-a-software-upgrade)**, on any chain: the upgrade handler pays every holder from a snapshot. Holders do nothing.
+3. **[Merkle claim on Injective](#option-3-merkle-claim-on-injective)**, on any chain: holders claim the new USDC on Injective with a merkle proof from a snapshot, proving ownership of their address with a Keplr signature. Nothing more runs on the chain after the return.
 
 Both start once the [return](../README.md#governance-runbook) has settled and the Noble multisig has converted the USDC. Neither is bound by Circle's 2027-01-12 deadline, which only applies to the return.
 
 ## Common steps
 
 1. **Return.** The return proposal (`MsgReturnToNoble` + `MsgSetSendEnabled`) releases Noble's escrow for the chain to the Noble multisig and freezes the old voucher at the same height. That height is in the `usdcmigration_return_to_noble` event.
-2. **Conversion.** The multisig converts the USDC to USDC (Injective) and sends it to the chain over IBC.
+2. **Conversion.** The multisig converts the USDC to USDC (Injective). For options 1 and 2 it sends it to the chain over IBC; for option 3 it stays on Injective.
    - Use the chain's direct transfer channel to Injective, the one in the chain registry, so the new USDC lands as the voucher DEXes and wallets already list: `ibc/<hash of transfer/<injective channel>/<injective usdc denom>>`.
-   - The receiver depends on the option: the redemption contract (option 1) or the distribution account (option 2).
+   - The receiver depends on the option: the redemption contract (option 1), the distribution account (option 2), or the claim contract on Injective (option 3).
    - Conversion and bridge costs come out of the converted amount (see [Cost](#cost)).
-3. **Repayment**, with option 1 or 2 below.
+3. **Repayment**, with option 1, 2 or 3 below.
 
 **The amount to repay** is the voucher supply at the return height (`query bank total-supply-of ibc/<voucher hash> --height <h>`), not the escrow released. The two differ on some chains ([table](proposals/README.md#values-already-filled-in-checked-on-chain-2026-10-26)):
 
@@ -30,13 +31,14 @@ Smart contract runtime and upload access (`cosmwasm/wasm/v1/codes/params`, check
 | Chain | Runtime | Code upload | Options |
 |---|---|---|---|
 | Agoric | Hardened JS (Zoe), deployed by core-eval | governance | 2, or 1 with a Zoe contract |
-| Xion | CosmWasm | governance (`Nobody`) | 1 or 2 |
 | Coreum | CosmWasm | anyone | 1 or 2 |
 | Neutron | CosmWasm | anyone | 1 or 2 |
 | Terra2 | CosmWasm | anyone | 1 or 2 |
 | Haqq | EVM | anyone | 2, or 1 with a Solidity contract |
 | Impacthub (ixo) | CosmWasm | governance (`Nobody`, instantiate too) | 1 or 2 |
 | Archway | CosmWasm | anyone | 1 or 2 |
+
+Option 3 needs nothing on the chain itself, so it is open to every chain as well.
 
 Where upload is restricted, the contract is stored and instantiated by a gov proposal (`MsgStoreAndInstantiateContract`), which can be the same proposal that unfreezes the voucher.
 
@@ -143,18 +145,88 @@ func distribute(ctx sdk.Context, bk bankkeeper.Keeper, dk distrkeeper.Keeper) er
 - The keeper's `SendCoins` checks neither `SendEnabled` nor blocked addresses, so the handler must not pay module accounts: they were resolved in the look-through step.
 - Optional: burn the old voucher from every plain account that was paid, so it disappears from wallets. Never burn it from module accounts or contracts: it would break their internal accounting.
 
+## Option 3: merkle claim on Injective
+
+The new USDC stays on Injective, in a claim contract. Holders claim their share there with a merkle proof from a snapshot, and prove they own their address on the chain with a Keplr signature. After the return proposal nothing else has to run on the chain: no contract, no unfreeze, no second upgrade. It suits chains with little activity left, and keeps the funds safe if the chain later halts.
+
+### Flow
+
+1. **Snapshot and look-through**, as in [option 2](#option-2-distribution-in-a-software-upgrade) (steps 1 and 2), at the return height.
+   - Only accounts with a key can sign a claim. Balances held by contracts, module accounts and multisigs go through the look-through to their depositors.
+   - What cannot be resolved that way is left out of the tree, listed separately, and paid by the admin case by case once the owner proves ownership.
+2. **Build the tree.** One merkle tree per chain. Each leaf is `sha256("<source chain id>:<address>:<amount>")`, with `amount` in the smallest unit and already scaled by the chain's `rate` (see [Common steps](#common-steps)). Pairs are hashed sorted, `sha256(min(a, b) || max(a, b))`.
+3. **Publish** the list, the root and the list's `sha256` in this repo, for holders to check before the root is registered.
+4. **Deploy** the claim contract on Injective. Its code is stored under Injective's wasm upload rules (a governance proposal or an allowed uploader). One contract serves every chain that picks this option.
+5. **Fund.** The multisig sends the chain's total USDC (Injective) to the contract, on Injective. No IBC transfer to the chain is needed.
+6. **Register** the chain's root (`register_merkle_root`). A root cannot be changed once set.
+7. **Claim.** Holders claim from a web page, any time before the expiry.
+
+### Ownership with Keplr
+
+A holder's address on the chain and their Injective address come from different keys, so the claim cannot rely on converting one address into the other. The holder proves ownership instead by signing the claim with the chain's key in Keplr, using ADR-36 arbitrary signing (`signArbitrary`), which costs nothing and sends no transaction on the chain:
+
+```js
+const data = JSON.stringify({
+  claim_contract: "inj1<claim contract>",
+  source_chain_id: sourceChainId,
+  address,                 // the holder's address on the chain, in the snapshot
+  amount,                  // from the published list
+  recipient: "inj1<recipient>",
+});
+const { pub_key, signature } = await window.keplr.signArbitrary(sourceChainId, address, data);
+```
+
+The fields are in this exact order, with no spaces, so the contract can rebuild the same bytes. `claim_contract` stops the signature from being replayed on another contract. The `recipient` can be any Injective address: the holder adds Injective in Keplr if they have no address there yet.
+
+The page then sends `claim` on Injective:
+
+```json
+{
+  "claim": {
+    "source_chain_id": "<source chain id>",
+    "address": "<holder address on the chain>",
+    "amount": "<amount>",
+    "recipient": "inj1<recipient>",
+    "proof": ["<hex>", "..."],
+    "pub_key": "<base64, from Keplr>",
+    "signature": "<base64, from Keplr>"
+  }
+}
+```
+
+The signature fixes the recipient, so anyone can submit the transaction: the holder, or a claim service that pays the INJ gas for holders who have none.
+
+### Contract
+
+| Message | Behaviour |
+|---|---|
+| `register_merkle_root { source_chain_id, bech32_prefix, merkle_root, total }` | Admin only, once per chain. Fails if the contract's balance does not cover the totals of all registered roots. |
+| `claim { … }` | Anyone can send it. Checks, in order: not expired; `(source_chain_id, address)` not claimed yet; the leaf and `proof` match the chain's root; `address` has the chain's `bech32_prefix` and its bytes are `ripemd160(sha256(pub_key))`; `signature` is valid for `pub_key` over the ADR-36 sign doc built from `data` (below). Then sends `amount` to `recipient` and marks the address claimed. |
+| `sweep {}` | Admin only, after the expiry. Sends what is left to a destination fixed at instantiation. |
+| query `config`, `merkle_root { source_chain_id }`, `is_claimed { source_chain_id, address }` | |
+
+The ADR-36 sign doc that Keplr signs, with keys sorted and no spaces, is hashed with `sha256` and checked with CosmWasm's `secp256k1_verify`:
+
+```json
+{"account_number":"0","chain_id":"","fee":{"amount":[],"gas":"0"},"memo":"","msgs":[{"type":"sign/MsgSignData","value":{"data":"<base64 of data>","signer":"<address>"}}],"sequence":"0"}
+```
+
+- Accounts with Ethereum-style keys (`eth_secp256k1`) derive the address with keccak-256 instead. The contract supports both key types; test each one against real Keplr signatures before deploying.
+- Instantiate with an expiry (for example two years) and the sweep destination. The wasm admin is the repayment multisig on Injective, with the same signers as the Noble multisig. State this in the return proposal: the claim contract is not controlled by the chain's governance.
+
 ## Comparison
 
-| | Option 1: contract | Option 2: upgrade |
-|---|---|---|
-| Chains | smart contract chains | any |
-| Holder action | redeem, any time | none |
-| Snapshot | not needed | at the return height, published for review |
-| Vouchers in DEXes, vaults, contracts | users withdraw, then redeem | look-through per holder, by hand |
-| Old voucher after repayment | unfrozen, backed by the contract, burned on redeem | stays frozen (optionally burned) |
-| Governance | store/instantiate (if restricted) + unfreeze proposal | software upgrade (binary release, validator coordination) |
-| Unclaimed funds | stay in the contract, for gov to decide later | none; surplus to the community pool |
-| New code to review | the contract | the upgrade handler and the payout list |
+| | Option 1: contract | Option 2: upgrade | Option 3: claim on Injective |
+|---|---|---|---|
+| Chains | smart contract chains | any | any |
+| Where holders are paid | on the chain | on the chain | on Injective |
+| Holder action | redeem, any time | none | sign with Keplr and claim, before the expiry |
+| Snapshot | not needed | at the return height, published for review | at the return height, published with the root |
+| Vouchers in DEXes, vaults, contracts | users withdraw, then redeem | look-through per holder, by hand | look-through per holder, by hand |
+| Old voucher after repayment | unfrozen, backed by the contract, burned on redeem | stays frozen (optionally burned) | stays frozen |
+| Governance on the chain after the return | store/instantiate (if restricted) + unfreeze proposal | software upgrade (binary release, validator coordination) | none |
+| Unclaimed funds | stay in the contract, for gov to decide later | none; surplus to the community pool | swept after the expiry to a fixed destination |
+| New code to review | the contract | the upgrade handler and the payout list | the claim contract, the claim page and the merkle trees |
 
 ## Cost
 
@@ -163,3 +235,4 @@ The current plan is to first implement this solution, and then apply for a grant
 - Converting and bridging the USDC to Injective, and the IBC transfer to each chain.
 - Writing and auditing the redemption contract (one CosmWasm contract for all CosmWasm chains, plus Zoe and Solidity versions if Agoric or Haqq choose option 1).
 - Building the snapshot and look-through lists, and testing the upgrade handler on a mainnet export, for chains that choose option 2.
+- Writing and auditing the claim contract on Injective, the claim page, and a claim service paying INJ gas, for chains that choose option 3.
