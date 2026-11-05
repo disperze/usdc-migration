@@ -137,23 +137,35 @@ if err := app.UsdcMigrationKeeper.SetParams(ctx, params); err != nil { // valida
 - **IBC v2** (lines 845-853): wrap `transferStackV2` with `usdcmigrationv2.NewIBCMiddleware` before `AddRoute`.
 - **DEX-locked balances:** voucher locked in DEX orders is not spendable, but this module never moves user balances, so nothing changes. The bank freeze will make DEX orders on the voucher fail to settle.
 
-## Neutron (v11.2.0, ibc-go v10)
+## Neutron (v11.4.0, ibc-go v10)
 
 Repository: [solva-solutions/neutron](https://github.com/solva-solutions/neutron). **File:** `app/app.go`, in `WireICS20PreWasmKeeper`.
 
 - **Keeper construction**
-  - Create `UsdcMigrationKeeper` with `app.RateLimitingICS4Wrapper` as its ICS4 wrapper, after the rate-limit wrapper (line 1646) and before `TransferKeeper` (line 1649).
-  - `wrapkeeper.NewKeeper` (line 1649): pass `app.UsdcMigrationKeeper` instead of `app.RateLimitingICS4Wrapper` (line 1653).
-  - The copies of the transfer keeper (PFM's `SetTransferKeeper` at line 1663, the wasm keeper's `portSource`, the wasm IBC handler) then share the pointer. There is no late `WithICS4Wrapper`.
+  - Create `UsdcMigrationKeeper` with `app.RateLimitingICS4Wrapper` as its ICS4 wrapper, after the rate-limit wrapper (line 1666) and before `TransferKeeper` (line 1669).
+  - `wrapkeeper.NewKeeper` (line 1669): pass `app.UsdcMigrationKeeper` instead of `app.RateLimitingICS4Wrapper` (line 1673).
+  - The copies of the transfer keeper (PFM's `SetTransferKeeper` at line 1683, the wasm keeper's `portSource`, the wasm IBC handler) then share the pointer. There is no late `WithICS4Wrapper`.
 - **Transfer stack**
-  - After the ibc-hooks wrap (line 1684), wrap it: `app.TransferStack = usdcmigration.NewIBCMiddleware(app.UsdcMigrationKeeper, &hooksTransferModule)`.
-  - The `TransferStack` field (line 393) is `*ibchooks.IBCMiddleware`; change it to `ibcporttypes.IBCModule`. Its only other use is `AddRoute` (line 847).
+  - After the ibc-hooks wrap (line 1704), wrap it: `app.TransferStack = usdcmigration.NewIBCMiddleware(app.UsdcMigrationKeeper, &hooksTransferModule)`.
+  - The `TransferStack` field (line 398) is `*ibchooks.IBCMiddleware`; change it to `ibcporttypes.IBCModule`. Its only other use is `AddRoute` (line 859).
 - **IBC v2:** none. `ChannelKeeperV2` is only given to the wasm keeper.
-- **Wasm keeper ICS4 wrapper** (line 796): leave `app.RateLimitingICS4Wrapper`. It only sends packets on contract ports. Contract ICS20 transfers (`IbcMsg::Transfer` and Neutron's `IBCTransfer` binding) go through the transfer keeper, so they are covered.
-- **Upgrade handler:** Neutron's handlers receive their keepers through `upgrades.UpgradeKeepers` (`app/upgrades/types.go`, filled at line 1322). Add `UsdcMigrationKeeper` there to set the params.
-- **IBC rate limits:** the return packet goes through `app.RateLimitingICS4Wrapper`. The rate-limit contract (`neutron15aqgplxcavqhurr0g5wwtdw6025dknkqwkfh0n46gp2qjl6236cs2yd3nl`) has send quotas on this voucher for channel `any`: 35% of the supply per day, 70% per week. A full return is above them, so the return proposal removes that path first (`remove_path`). Since v11 the gov module holds every role on the contract, with no timelock.
+- **Wasm keeper ICS4 wrapper** (line 808): leave `app.RateLimitingICS4Wrapper`. It only sends packets on contract ports. Contract ICS20 transfers (`IbcMsg::Transfer` and Neutron's `IBCTransfer` binding) go through the transfer keeper, so they are covered.
+- **Governance filter.** Since the Proposal 9 recovery (v11.4.0, `app/govfilter`), a neutron-1 proposal may only contain `MsgSoftwareUpgrade`, `MsgStoreCode`, or a text proposal (`messages: []` passes too).
+  - The filter runs at submit (ante handler and gov hooks, including messages nested in authz `MsgExec`) and at execution (the message router given to the gov keeper). It has no end height.
+  - So governance can never execute `MsgUpdateParams`, `MsgReturnToNoble`, `MsgExecuteContract` or `MsgSetSendEnabled` on Neutron, and an authz grant from gov is not a way around it. [`proposals/neutron.json`](proposals/neutron.json) cannot be executed there.
+  - Upgrade handlers are not filtered: they call keepers and message servers directly, as v11.4.0's own `RestrictCodeUpload` does.
+- **Upgrade handler.** Neutron's handlers receive their keepers through `upgrades.UpgradeKeepers` (`app/upgrades/types.go`, filled at line 1335). Add `UsdcMigrationKeeper` there. The handler does everything the return proposal does on other chains, except the freeze:
+  1. `SetParams`: `noble_channels: ["channel-30"]`, `base_denom: "uusdc"`, both blocks on.
+  2. Remove the voucher's rate-limit path: `wasmkeeper.NewMsgServerImpl(keepers.WasmKeeper).ExecuteContract` with the gov module as sender and `{"remove_path":{"channel_id":"any","denom":"<voucher>"}}`, as v11.0.0's `IBCRateLimitsChangeRoles` does. Check `get_quotas` first, and skip this step if there is no path.
+  3. `MsgReturnToNoble` through `usdcmigrationkeeper.NewMsgServerImpl`, with the gov module as `authority`, the Noble multisig as a constant `receiver`, and `amount` = the voucher's bank supply at that height (`BankKeeper.GetSupply`). The supply is below Noble's escrow (2,057,515.89 vs 2,058,476.26 USDC on 2026-10-26), so Noble accepts it whichever pending packets land first. Re-check that before tagging the release. Use a long `timeout_seconds` (up to 7 days).
+  - No `SetSendEnabled(false)`: lifting a freeze would need another upgrade, and the redemption contract needs bank sends of the voucher (see [repayment.md](repayment.md#neutron)).
+  - Run steps 2 and 3 in a `ctx.CacheContext()` and call `write()` only if both succeed; otherwise log the error and return `nil`, so a failed return does not halt the chain at the upgrade height. `write()` also re-emits the events that relayers and the redemption flow need.
+  - The return packet is sent from PreBlock, not from a transaction. Neutron's SDK fork indexes pre-block events (`d004b2b3`), but test relaying it with Hermes on an in-place testnet before mainnet.
+  - A return that times out or gets an error ack is refunded with nothing minted (`usdcmigration_return_refunded`). Governance cannot resend it, so a retry needs another upgrade, or a permissionless retry message added to the module for Neutron.
+- **IBC rate limits:** the return packet goes through `app.RateLimitingICS4Wrapper`. The rate-limit contract (`neutron15aqgplxcavqhurr0g5wwtdw6025dknkqwkfh0n46gp2qjl6236cs2yd3nl`) has send quotas on this voucher for channel `any`: 35% of the supply per day, 70% per week. A full return is above them, so the handler removes that path first (step 2). Since v11.0.0 the gov module holds every role on the contract, with no timelock.
 - **Holders:**
-  - The native DEX (`x/dex`) is in withdraw-only mode. It moves coins with module-account sends, which skip `SendEnabled`, so LPs can still withdraw the voucher after the freeze.
+  - Self-redemption to Noble ends at the upgrade height, which is also the return height. Schedule it as late as the 2027-01-12 deadline safely allows, and announce it early: holders only regained access to their funds after the Proposal 9 recovery.
+  - The native DEX (`x/dex`) is in withdraw-only mode. Its LPs withdraw the voucher, then redeem it in the redemption contract.
   - About 81% of the supply (1,672,301.71 of 2,057,515.89 USDC on 2026-10-26) is in one account, `neutron1yr29fd7uzdjp2jsq8hrta8mvyd6ex7vumn0shy`, which has never sent a transaction. Identify and contact its owner before the upgrade.
 
 ## Terra2 (v2.22, ibc-go v8)
