@@ -29,39 +29,38 @@ If the return packet times out or fails on Noble, nothing is lost: Noble's escro
 
 Nothing changes until the upgrade height. Holders who only recently regained access to their funds can still withdraw them and send the voucher back to Noble themselves, for example with Skip:Go. The upgrade will be scheduled as late as safely possible before 2027-01-12, and its height announced well in advance.
 
-From the upgrade height the voucher can no longer leave Neutron over IBC. It stays in holders' accounts and can still be moved on Neutron, so it can be redeemed in the contract below.
+From the upgrade height the voucher can no longer leave Neutron over IBC. It stays in holders' accounts and can still be moved on Neutron, so it can be redeemed in the pool below.
 
 The native DEX is already in withdraw-only mode. Its liquidity providers withdraw the voucher as usual, then redeem it.
 
-## Repayment: redemption contract
+## Repayment: redemption pool
 
-Holders are repaid in **USDC (Injective)** through a redemption contract on Neutron:
+Holders are repaid in **USDC (Injective)** through a redemption pool on Neutron: a new instance of Astroport's transmuter pool (code ID 5401, already on Neutron), which swaps 1:1 with no fees.
 
-- A holder sends the Noble USDC voucher to the contract and receives the same amount of USDC (Injective) back. Each redemption is paid in full or rejected.
-- There is no snapshot and no deadline: whoever holds the voucher can redeem it, at any time. Inactive holders lose nothing; their share waits in the contract.
+- A holder swaps the Noble USDC voucher in the pool and receives the same amount of USDC (Injective) back. Each swap is paid in full or rejected.
+- There is no snapshot and no deadline: whoever holds the voucher can redeem it, at any time. Inactive holders lose nothing; their share waits in the pool.
 - Vouchers in DEX pools and other contracts need no special handling: their users withdraw the voucher and redeem it.
-- The contract has no owner, no pause and no withdraw function. Its wasm admin is the gov module, so only a software upgrade can change it.
+- Nobody can withdraw the USDC (Injective): the pool's LP tokens are minted to the pool itself. Its wasm admin is the gov module, so only a software upgrade can change it.
 
-It is deployed after the upgrade, in this order:
+It is set up after the upgrade, with no further governance proposal:
 
 1. The Noble multisig converts the returned USDC to USDC (Injective) and sends it over IBC to a Neutron multisig with the same signers.
-2. Once the USDC (Injective) has arrived on Neutron, a governance proposal uploads the contract code (`MsgStoreCode`), which Neutron governance can still execute. Only the Neutron multisig may instantiate it.
-3. The Neutron multisig instantiates the contract, with the gov module as wasm admin, and sends it the USDC (Injective). Redemptions open from then on, and anyone can check the contract's balance against the voucher supply.
+2. The Neutron multisig creates the pool for the two denoms and provides at least the voucher supply in USDC (Injective). Redemptions open from then on, and anyone can check the pool's balance against the voucher supply.
 
 Other details:
 
 - **Noble and Neutron multisig signers:** the main validators of the Neutron network; further details will be provided if this proposal is approved.
-- **Repayment plan:** [docs/repayment.md](https://github.com/disperze/usdc-migration/blob/master/docs/repayment.md) (option 1, redemption contract)
+- **Repayment plan:** [docs/repayment.md](https://github.com/disperze/usdc-migration/blob/master/docs/repayment.md) (option 1, redemption contract; on Neutron, a transmuter pool)
 
 ## Next steps if this passes
 
-1. Publish the Neutron upgrade plan for review by Neutron's security maintainers: the upgrade handler, the Noble and Neutron multisigs and their signers, and the redemption contract.
+1. Publish the Neutron upgrade plan for review by Neutron's security maintainers: the upgrade handler, the Noble and Neutron multisigs and their signers, and the redemption pool.
 2. Submit one software upgrade proposal with that plan, well before 2027-01-12.
-3. After the USDC (Injective) arrives on Neutron, a proposal that uploads the redemption contract code.
+3. After the USDC (Injective) arrives on Neutron, create and fund the redemption pool. This needs no vote.
 
 ## Voting
 
-- **YES:** ship one software upgrade that adds `x/usdcmigration` and returns the Noble USDC escrow, then repay holders through the redemption contract.
+- **YES:** ship one software upgrade that adds `x/usdcmigration` and returns the Noble USDC escrow, then repay holders through the redemption pool.
 - **NO:** do not ship it; holders must redeem by themselves before 2027-01-12.
 - **ABSTAIN:** no preference, counts toward quorum.
 - **NO WITH VETO:** the proposal is spam or harmful.

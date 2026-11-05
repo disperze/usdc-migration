@@ -33,7 +33,7 @@ Smart contract runtime and upload access (`cosmwasm/wasm/v1/codes/params`, check
 |---|---|---|---|
 | Agoric | Hardened JS (Zoe), deployed by core-eval | governance | 2, or 1 with a Zoe contract |
 | Coreum | CosmWasm | anyone | 1 or 2 |
-| Neutron | CosmWasm | governance (`Nobody` since v11.4.0; gov `MsgStoreCode` only) | 1 |
+| Neutron | CosmWasm | governance (`Nobody` since v11.4.0; gov `MsgStoreCode` only) | 1, with Astroport's transmuter (already uploaded) |
 | Terra2 | CosmWasm | anyone | 1 or 2 |
 | Haqq | EVM | anyone | 2, or 1 with a Solidity contract |
 | Impacthub (ixo) | CosmWasm | governance (`Nobody`, instantiate too) | 1 or 2 |
@@ -41,7 +41,7 @@ Smart contract runtime and upload access (`cosmwasm/wasm/v1/codes/params`, check
 
 Option 3 needs nothing on the chain itself, so it is open to every chain as well.
 
-Where upload is restricted, the contract is stored and instantiated by a gov proposal (`MsgStoreAndInstantiateContract`), which can be the same proposal that unfreezes the voucher. Neutron is the exception: its governance can store code but not instantiate it (see [Neutron](#neutron)).
+Where upload is restricted, the contract is stored and instantiated by a gov proposal (`MsgStoreAndInstantiateContract`), which can be the same proposal that unfreezes the voucher. Neutron is the exception: it reuses a pool contract already on-chain, so no upload is needed (see [Neutron](#neutron)).
 
 ## Option 1: redemption contract
 
@@ -63,20 +63,74 @@ A contract holds the new USDC. A holder sends it old vouchers and gets the same 
 
 ### Neutron
 
-Neutron uses option 1, with a different order, because of its governance filter (v11.4.0, `app/govfilter`): a proposal may only contain `MsgSoftwareUpgrade`, `MsgStoreCode` or a text proposal. Governance cannot instantiate, execute or migrate contracts, or send `MsgSetSendEnabled`.
+Neutron uses option 1, but with a contract that is already on-chain, because of its governance filter (v11.4.0, `app/govfilter`). A proposal there may only contain `MsgSoftwareUpgrade`, `MsgStoreCode` or a text proposal. Governance cannot instantiate, execute or migrate contracts, or send `MsgSetSendEnabled`.
 
-1. **Upgrade.** The software upgrade that adds the module also returns the escrow in its handler (see [integration.md](integration.md#neutron-v1140-ibc-go-v10)). It does **not** freeze the voucher: lifting a freeze would need another upgrade, and holders need bank sends to put the voucher into the contract. The IBC send and receive blocks keep it on Neutron.
-2. **Bridge.** The Noble multisig converts the USDC to USDC (Injective) and sends it over Injective's direct channel to a **Neutron multisig** with the same signers. The contract does not exist yet, so the funds wait there.
-3. **Store.** Once the USDC (Injective) has arrived, a gov proposal with a single `MsgStoreCode` uploads the contract. Upload access is `Nobody`, but wasmd lets the gov module store code anyway. Set `instantiate_permission` to `AnyOfAddresses: [<Neutron multisig>]`, so nobody else can instantiate the code.
-4. **Instantiate.** The Neutron multisig instantiates the contract with wasm `admin` set to the gov module address. Only a software upgrade can then migrate it. The `rate` is set at this step, when the converted amount is already known: `1`, or `funded / supply at the upgrade height` if the funding is short.
-5. **Fund.** The multisig sends all the USDC (Injective) to the contract. Before bridging, check Neutron's rate-limit quotas on the USDC (Injective) voucher (`get_quotas`). A path on Injective's channel could reject a single transfer of the whole amount, and only an upgrade can remove it, so split the transfer if needed.
-6. **Redeem.** Redemptions open as soon as the contract is funded.
+The redemption contract is a new instance of **Astroport's transmuter pool**: a pool that swaps 1:1 with no fees. Its code is already uploaded, so this needs no gov proposal at all. Values checked on-chain on 2026-11-05:
 
-Until step 5 the voucher keeps moving on Neutron unbacked. Each redemption is paid in full or rejected, so nobody can redeem early at another holder's expense.
+| | Value |
+|---|---|
+| Code ID | `5401`: `astroport-pair-transmuter` 1.1.2, checksum `595d1368…8dcc3`, `instantiate_permission: Everybody` |
+| Old denom (Noble USDC voucher) | `ibc/B559A80D62249C8AA07A380E2A2BEA6E5CA9A6F079C912C3A9E9B494105E4F81` (6 decimals in the coin registry) |
+| New denom (USDC Injective) | `ibc/02BCFF6F786C7CBCDFE1AAFD8CFAC70D2AA9D57CF63AC0915048B666C650D8C5`: Injective's `erc20:0xa00C59fF5a080D2b954d0c75e46E22a0c371235a` over Neutron `channel-60` (Injective `channel-177`) |
+| Astroport factory | `neutron1hptk0k5kng7hjy35vmh009qd5m6l33609nypgf2yc6nqnewduqasxplt4e` |
+| Astroport native coin registry | `neutron1jzzv6r5uckwd64n6qan3suzker0kct5w565f6529zjyumfcx96kqtcswn3` (v1.1.0) |
 
-```sh
-<binary> tx wasm execute <contract> '{"redeem":{}}' --amount 1000000ibc/<voucher hash> --from <key>
-```
+**Use code 5401 only.** Transmuter builds 1.1.0 and 1.1.1 paid out for offer assets that were not pool assets. 1.1.2 rejects them, and its `migrate` only accepts those two versions. Do not reuse an older transmuter instance: create a new one.
+
+#### Flow
+
+1. **Upgrade.** The software upgrade that adds the module also returns the escrow in its handler (see [integration.md](integration.md#neutron-v1140-ibc-go-v10)).
+   - It does **not** freeze the voucher. Lifting a freeze would need another upgrade, and holders need bank sends to put the voucher into the pool.
+   - The IBC send and receive blocks keep the voucher on Neutron.
+2. **Bridge.** The Noble multisig converts the USDC to USDC (Injective) and sends it over Injective `channel-177` to a **Neutron multisig** with the same signers.
+   - Before sending, check Neutron's rate-limit quotas on the new denom (`get_quotas`). A path on that channel could reject one transfer of the whole amount, and only an upgrade can remove it, so split the transfer if needed.
+3. **Register the decimals.** The pool reads each denom's decimals from Astroport's native coin registry when it is created. The new denom is not in it yet.
+   - The registry's `register` is permissionless: it only requires attaching some of the coin, which it sends back.
+
+   ```sh
+   neutrond tx wasm execute neutron1jzzv6r5uckwd64n6qan3suzker0kct5w565f6529zjyumfcx96kqtcswn3 \
+     '{"register":{"native_coins":[["ibc/02BCFF6F786C7CBCDFE1AAFD8CFAC70D2AA9D57CF63AC0915048B666C650D8C5",6]]}}' \
+     --amount 1ibc/02BCFF6F786C7CBCDFE1AAFD8CFAC70D2AA9D57CF63AC0915048B666C650D8C5 --from <key>
+   ```
+
+   - Do it early, then check that `{"native_token":{"denom":"<new denom>"}}` returns `6`.
+   - The first registration wins and only Astroport's owner can change it. Wrong decimals would make every swap off by a power of ten, because the pool fixes its normalisation at instantiation.
+4. **Instantiate** code 5401 from the Neutron multisig, with the gov module as wasm `admin`, so only a software upgrade can migrate it:
+
+   ```sh
+   neutrond tx wasm instantiate 5401 '{"pair_type":{"custom":"transmuter"},"asset_infos":[{"native_token":{"denom":"ibc/B559A80D62249C8AA07A380E2A2BEA6E5CA9A6F079C912C3A9E9B494105E4F81"}},{"native_token":{"denom":"ibc/02BCFF6F786C7CBCDFE1AAFD8CFAC70D2AA9D57CF63AC0915048B666C650D8C5"}}],"token_code_id":36,"factory_addr":"neutron1hptk0k5kng7hjy35vmh009qd5m6l33609nypgf2yc6nqnewduqasxplt4e","init_params":null}' \
+     --label "usdc-noble-redemption" --admin neutron10d07y265gmmuvt4z0w9aw880jnsr700j7a68v5 --from <multisig>
+   ```
+
+   - The factory's transmuter pair type is `permissioned`, so only Astroport's factory owner can create one through the factory. Instantiating the code directly needs no permission. The pool is then not registered in the factory, so it does not appear in Astroport's UI or router.
+   - Holders use it from the CLI or a simple redeem page. Astroport can also create the pool through its factory, if it agrees, to list it.
+   - The pool creates its LP denom with tokenfactory, which has no creation fee on Neutron.
+5. **Fund.** The multisig sends `provide_liquidity` with only the new denom, and `receiver` set to **the pool's own address**:
+
+   ```sh
+   neutrond tx wasm execute <pool> '{"provide_liquidity":{"assets":[{"info":{"native_token":{"denom":"ibc/02BCFF6F786C7CBCDFE1AAFD8CFAC70D2AA9D57CF63AC0915048B666C650D8C5"}},"amount":"<amount>"}],"receiver":"<pool>"}}' \
+     --amount <amount>ibc/02BCFF6F786C7CBCDFE1AAFD8CFAC70D2AA9D57CF63AC0915048B666C650D8C5 --from <multisig>
+   ```
+
+   - Whoever holds the LP tokens can withdraw the pool's assets. Minted to the pool, they can never be withdrawn, because the pool does not spend its own LP tokens. Nobody keeps custody of the funds.
+   - Do not use the gov module as receiver: it is a module account, so the bank keeper refuses to send it the minted LP tokens.
+   - `<amount>` must be **at least the voucher supply at the upgrade height**. The pool pays strictly 1:1, first come first served, with no pro-rata rate. An underfunded pool would leave the last holders with nothing.
+   - The upgrade returns the supply, not the larger escrow, so conversion and bridge costs must be covered on top.
+   - If the funding is short anyway, the multisig tops it up before redemptions open.
+6. **Redeem.** Holders swap the old voucher for the new one:
+
+   ```sh
+   neutrond tx wasm execute <pool> '{"swap":{"offer_asset":{"info":{"native_token":{"denom":"ibc/B559A80D62249C8AA07A380E2A2BEA6E5CA9A6F079C912C3A9E9B494105E4F81"}},"amount":"1000000"}}}' \
+     --amount 1000000ibc/B559A80D62249C8AA07A380E2A2BEA6E5CA9A6F079C912C3A9E9B494105E4F81 --from <key>
+   ```
+
+#### Differences from the generic contract
+
+- **Rate:** strictly 1:1, with no `rate` parameter; see the funding requirement in step 5.
+- **Old vouchers are kept, not burned.** They stay in the pool, so the amount still to redeem is the voucher supply minus the pool's voucher balance.
+- **Swaps go both ways.** Anyone can swap USDC (Injective) back into the pool for vouchers. That adds as much as it takes out, so the backing of the remaining vouchers is unchanged.
+- **Anyone can also `provide_liquidity`.** Providing vouchers and withdrawing the new denom is the same as a swap, so it needs no protection.
+- **Before step 5 the voucher moves on Neutron without backing.** A swap is paid in full or rejected, so nobody can redeem early at another holder's expense.
 
 ### Contract
 
