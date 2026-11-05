@@ -11,6 +11,7 @@ Both start once the [return](../README.md#governance-runbook) has settled and th
 ## Common steps
 
 1. **Return.** The return proposal (`MsgReturnToNoble` + `MsgSetSendEnabled`) releases Noble's escrow for the chain to the Noble multisig and freezes the old voucher at the same height. That height is in the `usdcmigration_return_to_noble` event.
+   - **Neutron** has no return proposal: its governance cannot execute these messages. The upgrade that adds the module returns the escrow in its handler and does not freeze the voucher (see [Neutron](#neutron)).
 2. **Conversion.** The multisig converts the USDC to USDC (Injective). For options 1 and 2 it sends it to the chain over IBC; for option 3 it stays on Injective.
    - Use the chain's direct transfer channel to Injective, the one in the chain registry, so the new USDC lands as the voucher DEXes and wallets already list: `ibc/<hash of transfer/<injective channel>/<injective usdc denom>>`.
    - The receiver depends on the option: the redemption contract (option 1), the distribution account (option 2), or the claim contract on Injective (option 3).
@@ -32,7 +33,7 @@ Smart contract runtime and upload access (`cosmwasm/wasm/v1/codes/params`, check
 |---|---|---|---|
 | Agoric | Hardened JS (Zoe), deployed by core-eval | governance | 2, or 1 with a Zoe contract |
 | Coreum | CosmWasm | anyone | 1 or 2 |
-| Neutron | CosmWasm | anyone | 1 or 2 |
+| Neutron | CosmWasm | governance (`Nobody` since v11.4.0; gov `MsgStoreCode` only) | 1 |
 | Terra2 | CosmWasm | anyone | 1 or 2 |
 | Haqq | EVM | anyone | 2, or 1 with a Solidity contract |
 | Impacthub (ixo) | CosmWasm | governance (`Nobody`, instantiate too) | 1 or 2 |
@@ -40,7 +41,7 @@ Smart contract runtime and upload access (`cosmwasm/wasm/v1/codes/params`, check
 
 Option 3 needs nothing on the chain itself, so it is open to every chain as well.
 
-Where upload is restricted, the contract is stored and instantiated by a gov proposal (`MsgStoreAndInstantiateContract`), which can be the same proposal that unfreezes the voucher.
+Where upload is restricted, the contract is stored and instantiated by a gov proposal (`MsgStoreAndInstantiateContract`), which can be the same proposal that unfreezes the voucher. Neutron is the exception: its governance can store code but not instantiate it (see [Neutron](#neutron)).
 
 ## Option 1: redemption contract
 
@@ -59,6 +60,19 @@ A contract holds the new USDC. A holder sends it old vouchers and gets the same 
    - From this height the voucher is backed again, by the contract, so trading it is safe. The IBC send and receive blocks of `x/usdcmigration` stay on: the voucher still cannot leave the chain.
    - Submit it only once the contract is funded, never before.
 4. **Redeem.** Holders execute `redeem` with their old vouchers attached.
+
+### Neutron
+
+Neutron uses option 1, with a different order, because of its governance filter (v11.4.0, `app/govfilter`): a proposal may only contain `MsgSoftwareUpgrade`, `MsgStoreCode` or a text proposal. Governance cannot instantiate, execute or migrate contracts, or send `MsgSetSendEnabled`.
+
+1. **Upgrade.** The software upgrade that adds the module also returns the escrow in its handler (see [integration.md](integration.md#neutron-v1140-ibc-go-v10)). It does **not** freeze the voucher: lifting a freeze would need another upgrade, and holders need bank sends to put the voucher into the contract. The IBC send and receive blocks keep it on Neutron.
+2. **Bridge.** The Noble multisig converts the USDC to USDC (Injective) and sends it over Injective's direct channel to a **Neutron multisig** with the same signers. The contract does not exist yet, so the funds wait there.
+3. **Store.** Once the USDC (Injective) has arrived, a gov proposal with a single `MsgStoreCode` uploads the contract. Upload access is `Nobody`, but wasmd lets the gov module store code anyway. Set `instantiate_permission` to `AnyOfAddresses: [<Neutron multisig>]`, so nobody else can instantiate the code.
+4. **Instantiate.** The Neutron multisig instantiates the contract with wasm `admin` set to the gov module address. Only a software upgrade can then migrate it. The `rate` is set at this step, when the converted amount is already known: `1`, or `funded / supply at the upgrade height` if the funding is short.
+5. **Fund.** The multisig sends all the USDC (Injective) to the contract. Before bridging, check Neutron's rate-limit quotas on the USDC (Injective) voucher (`get_quotas`). A path on Injective's channel could reject a single transfer of the whole amount, and only an upgrade can remove it, so split the transfer if needed.
+6. **Redeem.** Redemptions open as soon as the contract is funded.
+
+Until step 5 the voucher keeps moving on Neutron unbacked. Each redemption is paid in full or rejected, so nobody can redeem early at another holder's expense.
 
 ```sh
 <binary> tx wasm execute <contract> '{"redeem":{}}' --amount 1000000ibc/<voucher hash> --from <key>

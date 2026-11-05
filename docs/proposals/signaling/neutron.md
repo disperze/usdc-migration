@@ -1,4 +1,4 @@
-# Signal support for x/usdcmigration in a future Neutron software upgrade (Noble USDC wind-down)
+# Signal support for one Neutron software upgrade that adds x/usdcmigration and returns the Noble USDC escrow
 
 This is a signaling (text) proposal. It executes no code and moves no funds. Proposed by the [Disperze validator](https://x.com/Disperze_).
 
@@ -10,42 +10,58 @@ Circle is ending USDC support on Noble:
 - CCTP V1 burn limits start shrinking on 2026-10-31.
 - USDC on Noble is fully paused on **2027-01-12**.
 
-After the pause Noble rejects every incoming `uusdc` packet, so the Noble USDC voucher on Neutron (`ibc/B559A80D62249C8AA07A380E2A2BEA6E5CA9A6F079C912C3A9E9B494105E4F81`, received over `channel-30`) can no longer be redeemed. About **2,057,515.89 USDC** of this voucher is on Neutron (supply as of 2026-10-26), and many holders are inactive and will not move it in time.
+After the pause Noble rejects every incoming `uusdc` packet, so the Noble USDC voucher on Neutron (`ibc/B559A80D62249C8AA07A380E2A2BEA6E5CA9A6F079C912C3A9E9B494105E4F81`, received over `channel-30`) can no longer be redeemed on Noble. About **2,057,515.89 USDC** of this voucher is on Neutron (supply as of 2026-10-26), and many holders are inactive and will not move it in time.
 
 ## Proposal
 
-A YES vote asks the Neutron core contributors to include the [`x/usdcmigration` module](https://github.com/disperze/usdc-migration) in a later software upgrade. That upgrade would:
+A YES vote asks the Neutron core contributors to ship **one software upgrade** that adds the [`x/usdcmigration` module](https://github.com/disperze/usdc-migration). At the upgrade height, its upgrade handler:
 
-- Reject new `uusdc` transfers arriving from Noble on `channel-30` (Noble refunds the sender).
-- Reject outgoing IBC transfers of the voucher on every channel, so the voucher supply stays equal to the USDC Noble holds in escrow for Neutron.
-- Let governance, in a separate proposal, return that escrowed USDC to a Noble multisig in a single IBC packet and freeze the voucher at the same height.
+1. Rejects new `uusdc` transfers arriving from Noble on `channel-30` (Noble refunds the sender).
+2. Rejects outgoing IBC transfers of the voucher on every channel.
+3. Removes the voucher's IBC rate-limit path. Its quota (35% of the supply a day) would otherwise reject the return.
+4. Returns Noble's USDC escrow for Neutron to a Noble multisig in a single IBC packet (`MsgReturnToNoble`). The amount is the voucher supply at that height, and the multisig address is fixed in the upgrade code.
 
-Holders are then repaid off-chain from a snapshot taken at that height. The module never touches user balances, mints nothing and needs no module-account permissions. The same escrow return was already used and tested when [Evmos was shut down](https://github.com/disperze/evmos/blob/release/v20/x/ibc/transfer/keeper/sudo_ibc.go).
+Neutron governance can only execute software upgrades, wasm code uploads and text proposals, so the return and the module params are in the upgrade itself. There is no follow-up return proposal, and the params cannot be changed afterwards without another upgrade. The module never touches user balances and mints nothing. The same escrow return was already used and tested when [Evmos was shut down](https://github.com/disperze/evmos/blob/release/v20/x/ibc/transfer/keeper/sudo_ibc.go).
+
+If the return packet times out or fails on Noble, nothing is lost: Noble's escrow is untouched, and the return is sent again to the same multisig.
 
 ## What changes for holders
 
-From the upgrade height the voucher can no longer be sent back to Noble or to any other chain. Holders who want to redeem it themselves must do so before the upgrade. Local transfers and trades on Neutron keep working until the return proposal freezes the voucher.
+Nothing changes until the upgrade height. Holders who only recently regained access to their funds can still withdraw them and send the voucher back to Noble themselves, for example with Skip:Go. The upgrade will be scheduled as late as safely possible before 2027-01-12, and its height announced well in advance.
 
-Neutron's IBC rate limiter caps sends of this voucher at 35% of its supply a day. The return moves the whole escrow in one packet, so the return proposal also removes the voucher's rate-limit path, in the same execution.
+From the upgrade height the voucher can no longer leave Neutron over IBC. It stays in holders' accounts and can still be moved on Neutron, so it can be redeemed in the contract below.
 
-The native DEX is already in withdraw-only mode. Its liquidity providers can still withdraw the voucher after the freeze; the snapshot counts the voucher held by the DEX module as part of their positions.
+The native DEX is already in withdraw-only mode. Its liquidity providers withdraw the voucher as usual, then redeem it.
+
+## Repayment: redemption contract
+
+Holders are repaid in **USDC (Injective)** through a redemption contract on Neutron:
+
+- A holder sends the Noble USDC voucher to the contract and receives the same amount of USDC (Injective) back. Each redemption is paid in full or rejected.
+- There is no snapshot and no deadline: whoever holds the voucher can redeem it, at any time. Inactive holders lose nothing; their share waits in the contract.
+- Vouchers in DEX pools and other contracts need no special handling: their users withdraw the voucher and redeem it.
+- The contract has no owner, no pause and no withdraw function. Its wasm admin is the gov module, so only a software upgrade can change it.
+
+It is deployed after the upgrade, in this order:
+
+1. The Noble multisig converts the returned USDC to USDC (Injective) and sends it over IBC to a Neutron multisig with the same signers.
+2. Once the USDC (Injective) has arrived on Neutron, a governance proposal uploads the contract code (`MsgStoreCode`), which Neutron governance can still execute. Only the Neutron multisig may instantiate it.
+3. The Neutron multisig instantiates the contract, with the gov module as wasm admin, and sends it the USDC (Injective). Redemptions open from then on, and anyone can check the contract's balance against the voucher supply.
+
+Other details:
+
+- **Noble and Neutron multisig signers:** the main validators of the Neutron network; further details will be provided if this proposal is approved.
+- **Repayment plan:** [docs/repayment.md](https://github.com/disperze/usdc-migration/blob/master/docs/repayment.md) (option 1, redemption contract)
 
 ## Next steps if this passes
 
-1. A software upgrade proposal that adds the module and sets the Noble channel (`channel-30`).
-2. A return proposal (rate-limit removal + `MsgReturnToNoble` + `MsgSetSendEnabled`) naming the Noble multisig.
-
-Each needs its own vote, and both must be done well before 2027-01-12.
-
-## Repayment
-
-- **Noble multisig signers:** the main validators of the Neutron network; further details will be provided if this proposal is approved.
-- **Holders are repaid in:** USDC (Injective).
-- **Repayment plan:** [docs/repayment.md](https://github.com/disperze/usdc-migration/blob/master/docs/repayment.md)
+1. Publish the Neutron upgrade plan for review by Neutron's security maintainers: the upgrade handler, the Noble and Neutron multisigs and their signers, and the redemption contract.
+2. Submit one software upgrade proposal with that plan, well before 2027-01-12.
+3. After the USDC (Injective) arrives on Neutron, a proposal that uploads the redemption contract code.
 
 ## Voting
 
-- **YES:** include `x/usdcmigration` in a future software upgrade.
-- **NO:** do not include it; holders must redeem by themselves before 2027-01-12.
+- **YES:** ship one software upgrade that adds `x/usdcmigration` and returns the Noble USDC escrow, then repay holders through the redemption contract.
+- **NO:** do not ship it; holders must redeem by themselves before 2027-01-12.
 - **ABSTAIN:** no preference, counts toward quorum.
 - **NO WITH VETO:** the proposal is spam or harmful.
