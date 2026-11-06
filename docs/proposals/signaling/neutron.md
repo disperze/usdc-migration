@@ -4,13 +4,14 @@ This is a signaling (text) proposal. It executes no code and moves no funds. Pro
 
 ## Background
 
-Circle is ending USDC support on Noble:
+Circle is ending USDC and CCTP V1 support on Noble ([Circle's announcement](https://www.circle.com/blog/circle-is-discontinuing-support-for-usdc-and-cctp-v1-on-noble), 2026-09-10):
 
 - Minting stopped on 2026-10-13.
-- CCTP V1 burn limits start shrinking on 2026-10-31.
+- CCTP V1 burn limits started shrinking toward zero on 2026-10-31.
+- After 2026-12-01, CCTP exits from Noble may be limited to destination chains that still support CCTP V1.
 - USDC on Noble is fully paused on **2027-01-12**.
 
-After the pause Noble rejects every incoming `uusdc` packet, so the Noble USDC voucher on Neutron (`ibc/B559A80D62249C8AA07A380E2A2BEA6E5CA9A6F079C912C3A9E9B494105E4F81`, received over `channel-30`) can no longer be redeemed on Noble. About **2,057,515.89 USDC** of this voucher is on Neutron (supply as of 2026-10-26), and many holders are inactive and will not move it in time.
+After the pause Noble rejects every incoming `uusdc` packet, so the Noble USDC voucher on Neutron (`ibc/B559A80D62249C8AA07A380E2A2BEA6E5CA9A6F079C912C3A9E9B494105E4F81`, received over `channel-30`) can no longer be redeemed on Noble. About **2,033,759.44 USDC** of this voucher is on Neutron (supply as of 2026-11-06), and many holders are inactive and will not move it in time.
 
 ## Proposal
 
@@ -27,7 +28,9 @@ If the return packet times out or fails on Noble, nothing is lost: Noble's escro
 
 ## What changes for holders
 
-Nothing changes until the upgrade height. Holders who only recently regained access to their funds can still withdraw them and send the voucher back to Noble themselves, for example with Skip:Go. The upgrade will be scheduled as late as safely possible before 2027-01-12, and its height announced well in advance.
+The upgrade is targeted for **Neutron v11.5.0, around November 23–24, 2026**. The exact height will be in the software upgrade proposal and announced before it.
+
+Nothing changes until that height. Holders who only recently regained access to their funds can still withdraw them and send the voucher back to Noble themselves, for example with Skip:Go. **IBC self-redemption to Noble ends at the upgrade height.**
 
 From the upgrade height the voucher can no longer leave Neutron over IBC. It stays in holders' accounts and can still be moved on Neutron, so it can be redeemed in the pool below.
 
@@ -51,12 +54,15 @@ Other details:
 
 - **Noble and Neutron multisig signers:** the main validators of the Neutron network; further details will be provided if this proposal is approved.
 - **Repayment plan:** [docs/repayment.md](https://github.com/disperze/usdc-migration/blob/master/docs/repayment.md) (option 1, redemption contract; on Neutron, a transmuter pool)
+- **Conversion to USDC (Injective):** [docs/conversion.md](https://github.com/disperze/usdc-migration/blob/master/docs/conversion.md). The main route goes through Osmosis and needs no CCTP; the fallback is CCTP V1 through Ethereum, before 2026-12-01.
 
-## Next steps if this passes
+## Timeline if this passes
 
-1. Publish the Neutron upgrade plan for review by Neutron's security maintainers: the upgrade handler, the Noble and Neutron multisigs and their signers, and the redemption pool.
-2. Submit one software upgrade proposal with that plan, well before 2027-01-12.
-3. After the USDC (Injective) arrives on Neutron, create and fund the redemption pool. This needs no vote.
+1. **This vote:** about 2026-11-09 to 2026-11-16.
+2. **Upgrade plan:** published for review by Neutron's security maintainers: the upgrade handler, the Noble and Neutron multisigs and their signers, and the redemption pool. It ships in Neutron v11.5.0, with a tagged `x/usdcmigration` release.
+3. **Software upgrade proposal:** submitted around 2026-11-16 to 2026-11-17, with 7 days of voting.
+4. **Upgrade:** around **2026-11-23 to 2026-11-24**. The escrow returns to the Noble multisig in the same block.
+5. **Conversion and pool:** the multisig converts the USDC to USDC (Injective) and sends it to Neutron, then creates and funds the redemption pool. This needs no vote, and is done well before 2027-01-12.
 
 ## Voting
 

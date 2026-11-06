@@ -12,7 +12,7 @@ Both start once the [return](../README.md#governance-runbook) has settled and th
 
 1. **Return.** The return proposal (`MsgReturnToNoble` + `MsgSetSendEnabled`) releases Noble's escrow for the chain to the Noble multisig and freezes the old voucher at the same height. That height is in the `usdcmigration_return_to_noble` event.
    - **Neutron** has no return proposal: its governance cannot execute these messages. The upgrade that adds the module returns the escrow in its handler and does not freeze the voucher (see [Neutron](#neutron)).
-2. **Conversion.** The multisig converts the USDC to USDC (Injective). For options 1 and 2 it sends it to the chain over IBC; for option 3 it stays on Injective.
+2. **Conversion.** The multisig converts the USDC to USDC (Injective). For options 1 and 2 it sends it to the chain over IBC; for option 3 it stays on Injective. The routes, Osmosis or CCTP V1 through Ethereum, and the wallets each needs are in [conversion.md](conversion.md).
    - Use the chain's direct transfer channel to Injective, the one in the chain registry, so the new USDC lands as the voucher DEXes and wallets already list: `ibc/<hash of transfer/<injective channel>/<injective usdc denom>>`.
    - The receiver depends on the option: the redemption contract (option 1), the distribution account (option 2), or the claim contract on Injective (option 3).
    - Conversion and bridge costs come out of the converted amount (see [Cost](#cost)).
