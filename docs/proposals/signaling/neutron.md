@@ -7,7 +7,7 @@ This is a signaling (text) proposal. It executes no code and moves no funds. Pro
 Circle is ending USDC and CCTP V1 support on Noble ([Circle's announcement](https://www.circle.com/blog/circle-is-discontinuing-support-for-usdc-and-cctp-v1-on-noble), 2026-09-10):
 
 - Minting stopped on 2026-10-13.
-- CCTP V1 burn limits started shrinking toward zero on 2026-10-31.
+- CCTP V1 burn limits start shrinking on 2026-10-31.
 - After 2026-12-01, CCTP exits from Noble may be limited to destination chains that still support CCTP V1.
 - USDC on Noble is fully paused on **2027-01-12**.
 
@@ -24,7 +24,7 @@ A YES vote asks the Neutron core contributors to ship **one software upgrade** t
 
 Neutron governance can only execute software upgrades, wasm code uploads and text proposals, so the return and the module params are in the upgrade itself. There is no follow-up return proposal, and the params cannot be changed afterwards without another upgrade. The module never touches user balances and mints nothing. The same escrow return was already used and tested when [Evmos was shut down](https://github.com/disperze/evmos/blob/release/v20/x/ibc/transfer/keeper/sudo_ibc.go).
 
-If the return packet times out or fails on Noble, nothing is lost: Noble's escrow is untouched, and the return is sent again to the same multisig.
+If the return packet times out or fails on Noble, nothing is lost: Noble's escrow is untouched.
 
 ## What changes for holders
 
@@ -58,11 +58,9 @@ Other details:
 
 ## Timeline if this passes
 
-1. **This vote:** about 2026-11-09 to 2026-11-16.
-2. **Upgrade plan:** published for review by Neutron's security maintainers: the upgrade handler, the Noble and Neutron multisigs and their signers, and the redemption pool. It ships in Neutron v11.5.0, with a tagged `x/usdcmigration` release.
-3. **Software upgrade proposal:** submitted around 2026-11-16 to 2026-11-17, with 7 days of voting.
-4. **Upgrade:** around **2026-11-23 to 2026-11-24**. The escrow returns to the Noble multisig in the same block.
-5. **Conversion and pool:** the multisig converts the USDC to USDC (Injective) and sends it to Neutron, then creates and funds the redemption pool. This needs no vote, and is done well before 2027-01-12.
+1. Publish the Neutron upgrade plan for review by Neutron's security maintainers: the upgrade handler, the Noble and Neutron multisigs and their signers, and the redemption pool.
+2. Software upgrade proposal submitted around 2026-11-16 to 2026-11-17, with 7 days of voting.
+3. After the USDC (Injective) arrives on Neutron, create and fund the redemption pool. This needs no vote.
 
 ## Voting
 
