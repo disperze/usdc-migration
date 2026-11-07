@@ -16,8 +16,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 
-	"github.com/giansalex/usdc-migration/v10/x/usdcmigration/keeper"
-	"github.com/giansalex/usdc-migration/v10/x/usdcmigration/types"
+	"github.com/disperze/usdc-migration/v10/x/usdcmigration/keeper"
+	"github.com/disperze/usdc-migration/v10/x/usdcmigration/types"
 )
 
 // ConsensusVersion is the module's consensus version.
@@ -33,13 +33,12 @@ var (
 
 // AppModule implements the usdcmigration module.
 type AppModule struct {
-	cdc    codec.Codec
 	keeper *keeper.Keeper
 }
 
 // NewAppModule creates a new AppModule.
-func NewAppModule(cdc codec.Codec, k *keeper.Keeper) AppModule {
-	return AppModule{cdc: cdc, keeper: k}
+func NewAppModule(k *keeper.Keeper) AppModule {
+	return AppModule{keeper: k}
 }
 
 // IsOnePerModuleType implements depinject.OnePerModuleType.
@@ -116,12 +115,6 @@ func (AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 			Service: "usdcmigration.v1.Query",
 			RpcCommandOptions: []*autocliv1.RpcCommandOptions{
 				{RpcMethod: "Params", Use: "params", Short: "Show the module parameters"},
-				{
-					RpcMethod:      "ReturnCap",
-					Use:            "return-cap [channel-id]",
-					Short:          "Show the voucher denom of a Noble channel and how much can still be returned",
-					PositionalArgs: []*autocliv1.PositionalArgDescriptor{{ProtoField: "channel_id"}},
-				},
 			},
 		},
 		Tx: &autocliv1.ServiceCommandDescriptor{

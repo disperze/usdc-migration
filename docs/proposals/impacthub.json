@@ -5,7 +5,7 @@
       "authority": "ixo10d07y265gmmuvt4z0w9aw880jnsr700j9hdhjq",
       "channel_id": "channel-26",
       "receiver": "noble1REPLACE_WITH_MULTISIG",
-      "amount": "0",
+      "amount": "54302017835",
       "timeout_seconds": "86400",
       "memo": ""
     },
@@ -24,6 +24,6 @@
   "metadata": "ipfs://REPLACE_WITH_METADATA_CID",
   "deposit": "10000000000uixo",
   "title": "Return Noble USDC escrow to the migration multisig and freeze the ixo (Impacthub) USDC voucher",
-  "summary": "Circle ends USDC support on Noble; the full pause is on 2027-01-12. This proposal returns all Noble USDC vouchers (ibc/6BBE9BD4246F8E04948D5A4EEE7164B2630263B9EBB5E7DC5F0A46C62A2FF97B) still in circulation on ixo (Impacthub) to Noble over channel-26 (MsgReturnToNoble, amount 0 = the full return cap), releasing the matching USDC from Noble escrow to the multisig noble1REPLACE_WITH_MULTISIG. In the same execution it disables bank sends of the voucher, so the holder snapshot is the height emitted by the usdcmigration_return_to_noble event. Holders are repaid off-chain from that snapshot: REPLACE_WITH_REPAYMENT_PLAN_URL.",
+  "summary": "Circle ends USDC support on Noble; the full pause is on 2027-01-12. This proposal returns Noble's full USDC escrow for ixo (54,302.017835 USDC, Noble channel-15) to the multisig noble1REPLACE_WITH_MULTISIG over channel-26 (MsgReturnToNoble with that explicit amount), covering all Noble USDC vouchers (ibc/6BBE9BD4246F8E04948D5A4EEE7164B2630263B9EBB5E7DC5F0A46C62A2FF97B) still in circulation on ixo (Impacthub). In the same execution it disables bank sends of the voucher, so the holder snapshot is the height emitted by the usdcmigration_return_to_noble event. Holders are repaid off-chain from that snapshot: REPLACE_WITH_REPAYMENT_PLAN_URL.",
   "expedited": false
 }

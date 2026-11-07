@@ -8,7 +8,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/giansalex/usdc-migration/v10/x/usdcmigration/types"
+	"github.com/disperze/usdc-migration/v10/x/usdcmigration/types"
 )
 
 type msgServer struct {
@@ -24,13 +24,13 @@ func NewMsgServerImpl(k *Keeper) types.MsgServer {
 
 // UpdateParams implements types.MsgServer.
 func (m msgServer) UpdateParams(goCtx context.Context, msg *types.MsgUpdateParams) (*types.MsgUpdateParamsResponse, error) {
-	if msg.Authority != m.authority {
-		return nil, errorsmod.Wrapf(types.ErrInvalidAuthority, "expected %s, got %s", m.authority, msg.Authority)
+	if err := m.checkAuthority(msg.Authority); err != nil {
+		return nil, err
 	}
-	if err := msg.Params.Validate(); err != nil {
-		return nil, errorsmod.Wrap(types.ErrInvalidParams, err.Error())
+	if err := msg.ValidateBasic(); err != nil {
+		return nil, err
 	}
-	if err := m.Params.Set(goCtx, msg.Params); err != nil {
+	if err := m.SetParams(goCtx, msg.Params); err != nil {
 		return nil, err
 	}
 
@@ -47,14 +47,14 @@ func (m msgServer) UpdateParams(goCtx context.Context, msg *types.MsgUpdateParam
 // escrow to the receiver. Nothing is minted, burned or moved on this chain, so
 // neither user balances nor the authority account are touched.
 func (m msgServer) ReturnToNoble(goCtx context.Context, msg *types.MsgReturnToNoble) (*types.MsgReturnToNobleResponse, error) {
-	if msg.Authority != m.authority {
-		return nil, errorsmod.Wrapf(types.ErrInvalidAuthority, "expected %s, got %s", m.authority, msg.Authority)
+	if err := m.checkAuthority(msg.Authority); err != nil {
+		return nil, err
 	}
 	if err := msg.ValidateBasic(); err != nil {
 		return nil, err
 	}
 	if m.ics4Wrapper == nil {
-		return nil, errorsmod.Wrap(types.ErrInvalidParams, "ics4 wrapper not set")
+		return nil, errorsmod.Wrap(types.ErrInvalidState, "ics4 wrapper not set")
 	}
 
 	ctx := sdk.UnwrapSDKContext(goCtx)
@@ -63,44 +63,20 @@ func (m msgServer) ReturnToNoble(goCtx context.Context, msg *types.MsgReturnToNo
 		return nil, errorsmod.Wrapf(types.ErrUnknownChannel, "%s not in %v", msg.ChannelId, params.NobleChannels)
 	}
 
-	denom, _, _, returnCap, err := m.ReturnCap(ctx, msg.ChannelId)
+	// Noble enforces its escrow balance for the channel: a larger amount gets
+	// an error ack, so nothing is tracked here.
+	sequence, err := m.sendReturnPacket(ctx, msg, params.BaseDenom)
 	if err != nil {
 		return nil, err
 	}
-
-	// Zero returns the remaining cap. An explicit amount is not limited by the
-	// cap, so gov can release the whole Noble escrow when it holds more than
-	// the voucher supply (e.g. USDC sent straight to the escrow address).
-	// Noble enforces the escrow balance: a larger amount gets an error ack and
-	// the returned total is released again.
-	amount := msg.Amount
-	if amount.IsZero() {
-		amount = returnCap
-	}
-	if !amount.IsPositive() {
-		return nil, types.ErrNothingToReturn
-	}
-
-	timeoutSeconds := msg.TimeoutSeconds
-	if timeoutSeconds == 0 {
-		timeoutSeconds = types.DefaultTimeoutSeconds
-	}
-	timeoutTimestamp := uint64(ctx.BlockTime().UnixNano()) + timeoutSeconds*1_000_000_000
-	sequence, err := m.sendReturnPacket(ctx, msg.ChannelId, amount, msg.Receiver, msg.Memo, timeoutTimestamp)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := m.addReturnedTotal(ctx, msg.ChannelId, amount); err != nil {
-		return nil, err
-	}
+	denom := types.VoucherDenom(msg.ChannelId, params.BaseDenom)
 
 	ctx.EventManager().EmitEvent(sdk.NewEvent(
 		types.EventTypeReturnToNoble,
 		sdk.NewAttribute(types.AttributeKeyHeight, strconv.FormatInt(ctx.BlockHeight(), 10)),
 		sdk.NewAttribute(types.AttributeKeyChannelID, msg.ChannelId),
 		sdk.NewAttribute(types.AttributeKeyDenom, denom),
-		sdk.NewAttribute(types.AttributeKeyAmount, amount.String()),
+		sdk.NewAttribute(types.AttributeKeyAmount, msg.Amount.String()),
 		sdk.NewAttribute(types.AttributeKeyReceiver, msg.Receiver),
 		sdk.NewAttribute(types.AttributeKeySequence, strconv.FormatUint(sequence, 10)),
 	))
@@ -108,6 +84,6 @@ func (m msgServer) ReturnToNoble(goCtx context.Context, msg *types.MsgReturnToNo
 	return &types.MsgReturnToNobleResponse{
 		Sequence: sequence,
 		Denom:    denom,
-		Amount:   amount,
+		Amount:   msg.Amount,
 	}, nil
 }

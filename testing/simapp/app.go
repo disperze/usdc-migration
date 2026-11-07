@@ -109,10 +109,10 @@ import (
 	ibctm "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
 	ibcmock "github.com/cosmos/ibc-go/v10/testing/mock"
 	mockv2 "github.com/cosmos/ibc-go/v10/testing/mock/v2"
-	"github.com/giansalex/usdc-migration/v10/x/usdcmigration"
-	usdcmigrationkeeper "github.com/giansalex/usdc-migration/v10/x/usdcmigration/keeper"
-	usdcmigrationtypes "github.com/giansalex/usdc-migration/v10/x/usdcmigration/types"
-	usdcmigrationv2 "github.com/giansalex/usdc-migration/v10/x/usdcmigration/v2"
+	"github.com/disperze/usdc-migration/v10/x/usdcmigration"
+	usdcmigrationkeeper "github.com/disperze/usdc-migration/v10/x/usdcmigration/keeper"
+	usdcmigrationtypes "github.com/disperze/usdc-migration/v10/x/usdcmigration/types"
+	usdcmigrationv2 "github.com/disperze/usdc-migration/v10/x/usdcmigration/v2"
 )
 
 const appName = "SimApp"
@@ -378,7 +378,6 @@ func NewSimApp(
 	// keeper's ICS4Wrapper, so every ICS20 send passes through it.
 	app.UsdcMigrationKeeper = usdcmigrationkeeper.NewKeeper(
 		appCodec, runtime.NewKVStoreService(keys[usdcmigrationtypes.StoreKey]),
-		app.BankKeeper,
 		app.IBCKeeper.ChannelKeeper,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 	)
@@ -502,7 +501,7 @@ func NewSimApp(
 		// IBC modules
 		ibc.NewAppModule(app.IBCKeeper),
 		transfer.NewAppModule(app.TransferKeeper),
-		usdcmigration.NewAppModule(appCodec, app.UsdcMigrationKeeper),
+		usdcmigration.NewAppModule(app.UsdcMigrationKeeper),
 		ica.NewAppModule(&app.ICAControllerKeeper, &app.ICAHostKeeper),
 		mockModule,
 

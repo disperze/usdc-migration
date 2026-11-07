@@ -2,34 +2,30 @@ package keeper
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"cosmossdk.io/collections"
 	"cosmossdk.io/core/store"
-	"cosmossdk.io/log"
-	"cosmossdk.io/math"
+	errorsmod "cosmossdk.io/errors"
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	porttypes "github.com/cosmos/ibc-go/v10/modules/core/05-port/types"
 
-	"github.com/giansalex/usdc-migration/v10/x/usdcmigration/types"
+	"github.com/disperze/usdc-migration/v10/x/usdcmigration/types"
 )
 
 // Keeper holds the module state and wraps the ICS4 channel used by the
 // transfer keeper. It must be handled as a pointer because the ICS4 wrapper
 // may be wired after construction.
 type Keeper struct {
-	cdc       codec.BinaryCodec
-	authority string
-
-	bankKeeper  types.BankKeeper
+	authority   string
 	ics4Wrapper porttypes.ICS4Wrapper
 
-	Schema         collections.Schema
-	Params         collections.Item[types.Params]
-	ReturnedTotals collections.Map[string, math.Int]
+	Schema collections.Schema
+	Params collections.Item[types.Params]
 }
 
 // NewKeeper creates a new usdcmigration Keeper. ics4Wrapper is the next ICS4
@@ -39,7 +35,6 @@ type Keeper struct {
 func NewKeeper(
 	cdc codec.BinaryCodec,
 	storeService store.KVStoreService,
-	bankKeeper types.BankKeeper,
 	ics4Wrapper porttypes.ICS4Wrapper,
 	authority string,
 ) *Keeper {
@@ -49,12 +44,9 @@ func NewKeeper(
 
 	sb := collections.NewSchemaBuilder(storeService)
 	k := &Keeper{
-		cdc:            cdc,
-		authority:      authority,
-		bankKeeper:     bankKeeper,
-		ics4Wrapper:    ics4Wrapper,
-		Params:         collections.NewItem(sb, types.ParamsKey, "params", codec.CollValue[types.Params](cdc)),
-		ReturnedTotals: collections.NewMap(sb, types.ReturnedTotalPrefix, "returned_totals", collections.StringKey, sdk.IntValue),
+		authority:   authority,
+		ics4Wrapper: ics4Wrapper,
+		Params:      collections.NewItem(sb, types.ParamsKey, "params", codec.CollValue[types.Params](cdc)),
 	}
 	schema, err := sb.Build()
 	if err != nil {
@@ -76,55 +68,32 @@ func (k *Keeper) GetAuthority() string {
 	return k.authority
 }
 
-// Logger returns a module-specific logger.
-func (k *Keeper) Logger(ctx context.Context) log.Logger {
-	return sdk.UnwrapSDKContext(ctx).Logger().With("module", "x/"+types.ModuleName)
+func (k *Keeper) checkAuthority(addr string) error {
+	if addr != k.authority {
+		return errorsmod.Wrapf(types.ErrInvalidAuthority, "expected %s, got %s", k.authority, addr)
+	}
+	return nil
 }
 
-// GetParams returns the module params, or the defaults if they were never set.
+// GetParams returns the module params, or the defaults if they were never
+// set. It panics on a corrupt store rather than fall back to the defaults,
+// which block nothing.
 func (k *Keeper) GetParams(ctx context.Context) types.Params {
 	p, err := k.Params.Get(ctx)
-	if err != nil {
+	if errors.Is(err, collections.ErrNotFound) {
 		return types.DefaultParams()
+	}
+	if err != nil {
+		panic(err)
 	}
 	return p
 }
 
-// GetReturnedTotal returns the amount returned to Noble over channelID and not refunded.
-func (k *Keeper) GetReturnedTotal(ctx context.Context, channelID string) math.Int {
-	amt, err := k.ReturnedTotals.Get(ctx, channelID)
-	if err != nil {
-		return math.ZeroInt()
+// SetParams validates and stores the module params. Upgrade handlers should
+// use it instead of writing Params directly.
+func (k *Keeper) SetParams(ctx context.Context, p types.Params) error {
+	if err := p.Validate(); err != nil {
+		return errorsmod.Wrap(types.ErrInvalidParams, err.Error())
 	}
-	return amt
-}
-
-func (k *Keeper) addReturnedTotal(ctx context.Context, channelID string, amt math.Int) error {
-	return k.ReturnedTotals.Set(ctx, channelID, k.GetReturnedTotal(ctx, channelID).Add(amt))
-}
-
-// subReturnedTotal decreases the returned total after a refund, flooring at zero.
-func (k *Keeper) subReturnedTotal(ctx context.Context, channelID string, amt math.Int) error {
-	total := k.GetReturnedTotal(ctx, channelID).Sub(amt)
-	if total.IsNegative() {
-		total = math.ZeroInt()
-	}
-	return k.ReturnedTotals.Set(ctx, channelID, total)
-}
-
-// ReturnCap computes how much voucher can still be returned over channelID:
-// supply - returned total, floored at zero. Returns do not burn the voucher,
-// so while inbound USDC and outbound vouchers are blocked, this equals Noble's
-// escrow for the channel minus what has already been released.
-func (k *Keeper) ReturnCap(ctx context.Context, channelID string) (denom string, supply, returned, cap math.Int, err error) {
-	params := k.GetParams(ctx)
-	denom = types.VoucherDenom(channelID, params.BaseDenom)
-
-	supply = k.bankKeeper.GetSupply(ctx, denom).Amount
-	returned = k.GetReturnedTotal(ctx, channelID)
-	cap = supply.Sub(returned)
-	if cap.IsNegative() {
-		cap = math.ZeroInt()
-	}
-	return denom, supply, returned, cap, nil
+	return k.Params.Set(ctx, p)
 }

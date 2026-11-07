@@ -1,5 +1,5 @@
 version: v1
-name: buf.build/giansalex/usdc-migration
+name: buf.build/disperze/usdc-migration
 deps:
   - buf.build/cosmos/cosmos-sdk:v0.50.0
   - buf.build/cosmos/cosmos-proto
@@ -8,6 +8,10 @@ deps:
 breaking:
   use:
     - FILE
+  except:
+    # go_package follows the Go module path; a path change is signalled by
+    # Go module versioning, not by the proto schema.
+    - FILE_SAME_GO_PACKAGE
 lint:
   use:
     - STANDARD

@@ -12,4 +12,8 @@ const (
 	AttributeKeyReceiver  = "receiver"
 	AttributeKeySequence  = "sequence"
 	AttributeKeyReason    = "reason"
+
+	// Values of AttributeKeyReason on EventTypeReturnRefunded.
+	RefundReasonErrorAck = "error_ack"
+	RefundReasonTimeout  = "timeout"
 )

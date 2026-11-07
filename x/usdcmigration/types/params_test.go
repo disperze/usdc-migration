@@ -7,7 +7,7 @@ import (
 
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 
-	"github.com/giansalex/usdc-migration/v10/x/usdcmigration/types"
+	"github.com/disperze/usdc-migration/v10/x/usdcmigration/types"
 )
 
 const (
@@ -102,4 +102,8 @@ func TestShouldBlockSend(t *testing.T) {
 
 func TestGenesisValidate(t *testing.T) {
 	require.NoError(t, types.DefaultGenesis().Validate())
+
+	gs := types.DefaultGenesis()
+	gs.Params.NobleChannels = []string{"07-tendermint-0"}
+	require.Error(t, gs.Validate())
 }

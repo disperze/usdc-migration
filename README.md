@@ -23,28 +23,26 @@ User balances are **never touched**. After the return their vouchers are no long
 
 The return packet follows the approach used, and tested, for the Evmos shutdown ([`forceIBCTransfer`](https://github.com/disperze/evmos/blob/release/v20/x/ibc/transfer/keeper/sudo_ibc.go)). Because no funds pass through the gov account, the module needs no `Minter` permission, gov does not have to be removed from the bank blocked addresses, and the bank freeze does not get in the way of a return.
 
-### Return cap and refunds
+### Amount and refunds
 
-```
-cap = bank supply(voucher) − returned_total(channel)
-```
-
-- While both blocks are on, the voucher supply and Noble's escrow for the channel no longer change, except through the gov return, which does not burn the voucher. Normally they are equal, so `cap` is what Noble can still pay out.
-- The escrow can be above the supply (for example USDC sent straight to the escrow address) or slightly below it. An explicit `amount` is therefore not limited by `cap`: set it to Noble's escrow balance to release all of it. Noble enforces that balance; a larger amount gets an error ack and is handled like any refund below.
-- A return packet is any voucher packet sent by gov on a Noble channel. Gov can no longer send the voucher any other way, so this match is exact.
-- If Noble answers with an error ack, or the packet times out, the middleware does **not** pass the packet on to the transfer module, which would mint the voucher back to gov. Instead it only decreases `returned_total`.
+- `amount` is required. Set it to Noble's escrow balance for the channel to release all of it. Read that balance on Noble: the voucher supply on this chain is not a reliable proxy, because the escrow can be above it (for example USDC sent straight to the escrow address) or below it.
+- The module keeps no return state. Noble's escrow is the only limit: an amount above the escrow balance, or a second return after the escrow is drained, gets an error ack and is handled like any refund below. The amount of every return is recorded in its `usdcmigration_return_to_noble` event and in the ICS20 packet.
+- A return packet is any voucher packet sent by gov on a Noble channel. Gov can no longer send the voucher any other way, so this match is exact as long as `send_block_enabled` stays on and the params do not change while a return is in flight (see [Do not change params while a return is in flight](docs/integration.md#do-not-change-params-while-a-return-is-in-flight)).
+- If Noble answers with an error ack, or the packet times out, the middleware does **not** pass the packet on to the transfer module, which would mint the voucher back to gov. It only emits `usdcmigration_return_refunded`.
 - A retry is just another `MsgReturnToNoble`.
 
 ## Release lines
 
 | Branch | Go module | Cosmos SDK | ibc-go | Chains |
 |---|---|---|---|---|
-| `main` | `github.com/giansalex/usdc-migration/v10` | ≥ v0.53.4 | v10 (≥ v10.5.0) | Agoric, Xion, Coreum, Juno |
-| `release/v8.x` | `github.com/giansalex/usdc-migration/v8` | ≥ v0.50.10 | v8 (≥ v8.7.0) | Terra2, Haqq, Impacthub (ixo), Archway |
+| `master` | `github.com/disperze/usdc-migration/v10` | ≥ v0.53.4 | v10 (≥ v10.5.0) | Agoric, Xion, Coreum, Neutron, Juno |
+| `release/v8.x` | `github.com/disperze/usdc-migration/v8` | ≥ v0.50.10 | v8 (≥ v8.7.0) | Terra2, Haqq, Impacthub (ixo), Archway |
 
-Only the ibc-go-specific files differ between the two lines: the middleware, the ICS4 wrapper and the expected keepers. The v8 line has no IBC v2 wrapper.
+Only the ibc-go-specific files differ between the two lines: the middleware, the ICS4 wrapper, the return packet and the expected keepers. The v8 line has no IBC v2 wrapper. Two more differences on v8:
+- `NewKeeper` also takes the transfer module's scoped keeper, which the return packet needs for the channel capability.
+- The middleware also reads ICS29 incentivized acks, so a refund on a fee-enabled channel is still caught.
 
-> The return packet is on `main` only for now. `release/v8.x` still uses mint-and-return until it is ported; the port needs the transfer channel capability to send the packet.
+Releases are tagged `v10.x.y` on `master` and `v8.x.y` on `release/v8.x`. See [CHANGELOG.md](CHANGELOG.md).
 
 ## Messages, queries, events
 
@@ -60,26 +58,24 @@ Only the ibc-go-specific files differ between the two lines: the middleware, the
 **`MsgReturnToNoble`** (gov only). Fields:
 - `channel_id`: must be in `noble_channels`.
 - `receiver`: a `noble1…` address.
-- `amount`: `0` means the whole cap. A non-zero amount may exceed the cap, up to Noble's escrow for the channel.
+- `amount`: USDC to release from Noble's escrow for the channel, in `uusdc`. Must be positive; use the escrow balance to withdraw everything.
 - `timeout_seconds`: `0` means 3600; the maximum is 7 days.
 - `memo`
 
 **Queries** (CLI `query usdcmigration …`, REST `/usdcmigration/v1/…`):
 - `params`
-- `return-cap [channel-id]`: shows the voucher denom, supply, returned total and cap.
 
 **Events:**
 - `usdcmigration_return_to_noble`: `height`, `channel_id`, `denom`, `amount`, `receiver`, `sequence`. The `height` is the reference for the holder snapshot.
-- `usdcmigration_return_refunded`: emitted on an error ack or timeout.
-- `usdcmigration_params_updated`
+- `usdcmigration_return_refunded`: `height`, `channel_id`, `sequence`, `amount`, `reason` (`error_ack` or `timeout`).
+- `usdcmigration_params_updated`: `height`.
 
 ## Governance runbook
 
 1. **Upgrade.** Add the module (see [docs/integration.md](docs/integration.md)). The upgrade handler sets `noble_channels`.
    - From this height on, nobody can bring new USDC in from Noble or move the voucher out.
    - Local bank sends and DEX trades still work.
-2. **Check the cap.** Run `query usdcmigration return-cap <channel>`.
-   - Compare it with Noble's escrow balance for the counterparty channel: `GET <noble-rest>/cosmos/bank/v1beta1/balances/<escrow>`. If they differ, use the escrow balance as `amount` instead of `0`.
+2. **Read the escrow balance.** Query Noble's escrow for the counterparty channel: `GET <noble-rest>/cosmos/bank/v1beta1/balances/<escrow>`. Its `uusdc` balance is the `amount`.
 3. **Proposal**, one proposal executed atomically. Per-chain scaffolds and minimum deposits are in [docs/proposals](docs/proposals/README.md).
 
    ```json
@@ -90,7 +86,7 @@ Only the ibc-go-specific files differ between the two lines: the middleware, the
          "authority": "<gov module address>",
          "channel_id": "channel-224",
          "receiver": "noble1<multisig>",
-         "amount": "0",
+         "amount": "<escrow balance in uusdc>",
          "timeout_seconds": "86400",
          "memo": ""
        },
@@ -106,10 +102,10 @@ Only the ibc-go-specific files differ between the two lines: the middleware, the
 
 4. **Relay and verify.**
    - Relay the packet. Noble's escrow for the channel should be `0`, and the multisig should hold the USDC.
-   - On this chain, `returned_total` should equal the amount and `cap` should be `0`.
+   - **Do not submit `MsgUpdateParams` until the return has settled** (acknowledged, or refunded with `usdcmigration_return_refunded`). See [docs/integration.md](docs/integration.md#do-not-change-params-while-a-return-is-in-flight).
 5. **Snapshot.** Take the holder snapshot of `ibc/<voucher hash>` at the `height` emitted by `usdcmigration_return_to_noble`, e.g. `query bank denom-owners … --height`.
 
-**If Noble refunds** (error ack or timeout), the cap is restored and an `usdcmigration_return_refunded` event is emitted. Nothing is minted to gov. The retry proposal is just another `MsgReturnToNoble`. The voucher can stay frozen, because the return packet involves no bank send.
+**If Noble refunds** (error ack or timeout), the escrow is untouched and an `usdcmigration_return_refunded` event is emitted. Nothing is minted to gov. The retry proposal is just another `MsgReturnToNoble`. The voucher can stay frozen, because the return packet involves no bank send.
 
 **Do the return well before 2027-01-12.** After Circle's pause every attempt is refunded. The Noble multisig also needs time to move the USDC out while CCTP V1 burn limits shrink.
 
@@ -145,6 +141,10 @@ bash scripts/protocgen.sh   # needs buf, protoc-gen-gocosmos, protoc-gen-grpc-ga
   - send block on v1 and v2, gov included;
   - a return packet draining Noble's escrow, with the voucher supply and all balances unchanged;
   - a return while the voucher is frozen with `SetSendEnabled(false)`;
-  - partial returns and the cap;
+  - partial returns, an amount above Noble's escrow, and an escrow above the voucher supply;
   - error-ack and timeout refunds with nothing minted, then a retry.
 - `testing/simapp`: the ibc-go v10.5.0 simapp with this module wired in.
+
+## License
+
+Apache License 2.0. See [LICENSE](LICENSE).

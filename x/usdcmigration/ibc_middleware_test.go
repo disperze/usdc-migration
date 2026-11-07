@@ -23,9 +23,9 @@ import (
 	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
-	"github.com/giansalex/usdc-migration/v10/testing/simapp"
-	"github.com/giansalex/usdc-migration/v10/x/usdcmigration/keeper"
-	"github.com/giansalex/usdc-migration/v10/x/usdcmigration/types"
+	"github.com/disperze/usdc-migration/v10/testing/simapp"
+	"github.com/disperze/usdc-migration/v10/x/usdcmigration/keeper"
+	"github.com/disperze/usdc-migration/v10/x/usdcmigration/types"
 )
 
 const usdc = "uusdc"
@@ -128,7 +128,7 @@ func (s *MiddlewareTestSuite) transferMsg(from *ibctesting.TestChain, channel st
 func (s *MiddlewareTestSuite) transfer(from *ibctesting.TestChain, channel string, coin sdk.Coin, to sdk.AccAddress) channeltypes.Packet {
 	res, err := from.SendMsgs(s.transferMsg(from, channel, coin, to))
 	s.Require().NoError(err)
-	packet, err := ibctesting.ParsePacketFromEvents(res.Events)
+	packet, err := ibctesting.ParseV1PacketFromEvents(res.Events)
 	s.Require().NoError(err)
 	return packet
 }
@@ -152,7 +152,7 @@ func (s *MiddlewareTestSuite) returnToNoble(amount sdkmath.Int, receiver sdk.Acc
 	if err != nil {
 		return nil, channeltypes.Packet{}, err
 	}
-	packet, perr := ibctesting.ParsePacketFromEvents(ctx.EventManager().ABCIEvents())
+	packet, perr := ibctesting.ParseV1PacketFromEvents(ctx.EventManager().ABCIEvents())
 	s.Require().NoError(perr)
 	s.coordinator.CommitBlock(s.chainA)
 	return res, packet, nil
@@ -263,10 +263,11 @@ func (s *MiddlewareTestSuite) requireVoucherUntouched() {
 func (s *MiddlewareTestSuite) TestReturnToNobleDrainsEscrow() {
 	s.Require().Equal(s.seeded, s.nobleEscrow())
 
-	res, packet, err := s.returnToNoble(sdkmath.ZeroInt(), s.multisig, 0)
+	res, packet, err := s.returnToNoble(s.seeded, s.multisig, 0)
 	s.Require().NoError(err)
 	s.Require().Equal(s.seeded, res.Amount)
 	s.Require().Equal(s.voucher, res.Denom)
+	s.Require().Equal(res.Sequence, packet.Sequence)
 	s.requireVoucherUntouched()
 
 	ack := s.relay(s.pathAB, packet)
@@ -278,30 +279,30 @@ func (s *MiddlewareTestSuite) TestReturnToNobleDrainsEscrow() {
 	s.Require().True(s.nobleEscrow().IsZero())
 	s.Require().Equal(s.seeded, s.balance(s.chainB, s.multisig, usdc))
 
-	// chain A: no voucher minted, burned or moved, cap exhausted
+	// chain A: no voucher minted, burned or moved
 	s.requireVoucherUntouched()
-	s.Require().Equal(s.seeded, s.keeper().GetReturnedTotal(s.chainA.GetContext(), s.pathAB.EndpointA.ChannelID))
 
-	_, _, err = s.returnToNoble(sdkmath.ZeroInt(), s.multisig, 0)
-	s.Require().ErrorIs(err, types.ErrNothingToReturn)
+	// A second return is sent, but Noble's escrow is empty: error ack, and
+	// still nothing minted on chain A.
+	_, packet, err = s.returnToNoble(s.seeded, s.multisig, 0)
+	s.Require().NoError(err)
+	s.requireErrorAck(s.relay(s.pathAB, packet))
+	s.requireVoucherUntouched()
 }
 
-func (s *MiddlewareTestSuite) TestReturnToNoblePartialAndCap() {
-	channel := s.pathAB.EndpointA.ChannelID
+func (s *MiddlewareTestSuite) TestReturnToNoblePartial() {
 	half := s.seeded.QuoRaw(2)
 	_, packet, err := s.returnToNoble(half, s.multisig, 0)
 	s.Require().NoError(err)
 	s.relay(s.pathAB, packet)
 
-	// More than Noble's escrow: sent, but Noble answers with an error ack and
-	// the returned total is released again.
+	// More than Noble's escrow: sent, but Noble answers with an error ack.
 	_, packet, err = s.returnToNoble(half.AddRaw(1), s.multisig, 0)
 	s.Require().NoError(err)
 	s.requireErrorAck(s.relay(s.pathAB, packet))
-	s.Require().Equal(half, s.keeper().GetReturnedTotal(s.chainA.GetContext(), channel))
 	s.Require().Equal(half, s.nobleEscrow())
 
-	_, packet, err = s.returnToNoble(sdkmath.ZeroInt(), s.multisig, 0)
+	_, packet, err = s.returnToNoble(half, s.multisig, 0)
 	s.Require().NoError(err)
 	s.relay(s.pathAB, packet)
 
@@ -334,29 +335,20 @@ func (s *MiddlewareTestSuite) TestReturnToNobleDrainsEscrowAboveSupply() {
 	s.Require().True(s.nobleEscrow().IsZero())
 	s.Require().Equal(all, s.balance(s.chainB, s.multisig, usdc))
 	s.requireVoucherUntouched()
-
-	_, _, returned, returnCap, err := s.keeper().ReturnCap(s.chainA.GetContext(), s.pathAB.EndpointA.ChannelID)
-	s.Require().NoError(err)
-	s.Require().Equal(all, returned)
-	s.Require().True(returnCap.IsZero())
-
-	_, _, err = s.returnToNoble(sdkmath.ZeroInt(), s.multisig, 0)
-	s.Require().ErrorIs(err, types.ErrNothingToReturn)
 }
 
 func (s *MiddlewareTestSuite) TestReturnToNobleErrorAckRefundsAndRetries() {
-	// Noble rejects a blocked receiver -> error ack -> only the returned total is released.
+	// Noble rejects a blocked receiver -> error ack -> nothing minted on chain A.
 	blocked := authtypes.NewModuleAddress(distrtypes.ModuleName)
-	_, packet, err := s.returnToNoble(sdkmath.ZeroInt(), blocked, 0)
+	_, packet, err := s.returnToNoble(s.seeded, blocked, 0)
 	s.Require().NoError(err)
 	s.requireErrorAck(s.relay(s.pathAB, packet))
 
 	s.requireVoucherUntouched()
-	s.Require().True(s.keeper().GetReturnedTotal(s.chainA.GetContext(), s.pathAB.EndpointA.ChannelID).IsZero())
 	s.Require().Equal(s.seeded, s.nobleEscrow())
 
 	// Retry is just another return.
-	res, packet, err := s.returnToNoble(sdkmath.ZeroInt(), s.multisig, 0)
+	res, packet, err := s.returnToNoble(s.seeded, s.multisig, 0)
 	s.Require().NoError(err)
 	s.Require().Equal(s.seeded, res.Amount)
 	s.relay(s.pathAB, packet)
@@ -367,7 +359,7 @@ func (s *MiddlewareTestSuite) TestReturnToNobleErrorAckRefundsAndRetries() {
 }
 
 func (s *MiddlewareTestSuite) TestReturnToNobleTimeoutRefunds() {
-	_, packet, err := s.returnToNoble(sdkmath.ZeroInt(), s.multisig, 1)
+	_, packet, err := s.returnToNoble(s.seeded, s.multisig, 1)
 	s.Require().NoError(err)
 
 	s.coordinator.IncrementTimeBy(time.Minute)
@@ -376,7 +368,6 @@ func (s *MiddlewareTestSuite) TestReturnToNobleTimeoutRefunds() {
 	s.Require().NoError(s.pathAB.EndpointA.TimeoutPacket(packet))
 
 	s.requireVoucherUntouched()
-	s.Require().True(s.keeper().GetReturnedTotal(s.chainA.GetContext(), s.pathAB.EndpointA.ChannelID).IsZero())
 	s.Require().Equal(s.seeded, s.nobleEscrow())
 }
 
@@ -385,7 +376,7 @@ func (s *MiddlewareTestSuite) TestReturnToNobleWhenVoucherFrozen() {
 	s.app(s.chainA).BankKeeper.SetSendEnabled(s.chainA.GetContext(), s.voucher, false)
 	s.coordinator.CommitBlock(s.chainA)
 
-	_, packet, err := s.returnToNoble(sdkmath.ZeroInt(), s.multisig, 0)
+	_, packet, err := s.returnToNoble(s.seeded, s.multisig, 0)
 	s.Require().NoError(err)
 	s.relay(s.pathAB, packet)
 
@@ -401,7 +392,7 @@ func (s *MiddlewareTestSuite) TestReturnToNobleRejections() {
 		Authority: s.gov.String(),
 		ChannelId: s.pathAB.EndpointA.ChannelID,
 		Receiver:  s.multisig.String(),
-		Amount:    sdkmath.ZeroInt(),
+		Amount:    s.seeded,
 	}
 
 	msg := valid
@@ -418,30 +409,18 @@ func (s *MiddlewareTestSuite) TestReturnToNobleRejections() {
 	msg.Receiver = "noble1invalid"
 	_, err = srv.ReturnToNoble(ctx, &msg)
 	s.Require().ErrorIs(err, types.ErrInvalidReceiver)
-}
 
-func (s *MiddlewareTestSuite) TestQueryReturnCap() {
-	q := keeper.NewQueryServerImpl(s.keeper())
-	res, err := q.ReturnCap(s.chainA.GetContext(), &types.QueryReturnCapRequest{ChannelId: s.pathAB.EndpointA.ChannelID})
-	s.Require().NoError(err)
-	s.Require().Equal(s.voucher, res.Denom)
-	s.Require().Equal(s.seeded, res.Supply)
-	s.Require().Equal(s.seeded, res.Cap)
-
-	_, err = q.ReturnCap(s.chainA.GetContext(), &types.QueryReturnCapRequest{ChannelId: s.pathAC.EndpointA.ChannelID})
-	s.Require().Error(err)
+	msg = valid
+	msg.Amount = sdkmath.ZeroInt()
+	_, err = srv.ReturnToNoble(ctx, &msg)
+	s.Require().ErrorIs(err, types.ErrInvalidAmount)
 }
 
 func (s *MiddlewareTestSuite) TestGenesisRoundTrip() {
-	_, packet, err := s.returnToNoble(sdkmath.ZeroInt(), s.multisig, 0)
-	s.Require().NoError(err)
-	s.relay(s.pathAB, packet)
-
 	ctx := s.chainA.GetContext()
 	gs, err := s.keeper().ExportGenesis(ctx)
 	s.Require().NoError(err)
 	s.Require().NoError(gs.Validate())
 	s.Require().Equal([]string{s.pathAB.EndpointA.ChannelID}, gs.Params.NobleChannels)
-	s.Require().Len(gs.ReturnedTotals, 1)
-	s.Require().Equal(s.seeded, gs.ReturnedTotals[0].Amount)
+	s.Require().NoError(s.keeper().InitGenesis(ctx, *gs))
 }
