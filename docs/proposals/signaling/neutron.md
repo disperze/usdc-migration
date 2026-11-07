@@ -22,6 +22,8 @@ A YES vote asks the Neutron core contributors to ship **one software upgrade** t
 3. Removes the voucher's IBC rate-limit path. Its quota (35% of the supply a day) would otherwise reject the return.
 4. Returns Noble's USDC escrow for Neutron to a Noble multisig in a single IBC packet (`MsgReturnToNoble`). The amount is the voucher supply at that height, and the multisig address is fixed in the upgrade code.
 
+The Neutron multisig is `neutron1yr29fd7uzdjp2jsq8hrta8mvyd6ex7vumn0shy`, with the same signers as the Noble multisig: Stake&Relax, Polkachu, 01node, Newt Node and Solva.
+
 Neutron governance can only execute software upgrades, wasm code uploads and text proposals, so the return and the module params are in the upgrade itself. There is no follow-up return proposal, and the params cannot be changed afterwards without another upgrade. The module never touches user balances and mints nothing. The same escrow return was already used and tested when [Evmos was shut down](https://github.com/disperze/evmos/blob/release/v20/x/ibc/transfer/keeper/sudo_ibc.go).
 
 If the return packet times out or fails on Noble, nothing is lost: Noble's escrow is untouched.
@@ -52,7 +54,7 @@ It is set up after the upgrade, with no further governance proposal:
 
 Other details:
 
-- **Noble and Neutron multisig signers:** the main validators of the Neutron network; further details will be provided if this proposal is approved.
+- **Noble and Neutron multisig signers:** Stake&Relax, Polkachu, 01node, Newt Node and Solva.
 - **Repayment plan:** [docs/repayment.md](https://github.com/disperze/usdc-migration/blob/master/docs/repayment.md) (option 1, redemption contract; on Neutron, a transmuter pool)
 - **Conversion to USDC (Injective):** [docs/conversion.md](https://github.com/disperze/usdc-migration/blob/master/docs/conversion.md). The main route goes through Osmosis and needs no CCTP; the fallback is CCTP V1 through Ethereum, before 2026-12-01.
 
