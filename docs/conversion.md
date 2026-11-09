@@ -2,8 +2,8 @@
 
 After the return, the Noble multisig holds the chain's USDC on Noble. Before repayment it converts that USDC to **USDC (Injective)** and sends it to the chain. This page covers that step, with Neutron as the worked example. It has two paths:
 
-- **[Path A: Osmosis](#path-a-osmosis-skipgo)** (recommended): one transaction on Noble, 1:1 swap through an Osmosis transmuter pool, delivered to Neutron over IBC. No CCTP, so Circle's 2026-12-01 CCTP cutoff does not apply. It still has to finish before 2027-01-12.
-- **[Path B: CCTP V1 through Ethereum](#path-b-cctp-v1-through-ethereum)** (fallback): burn on Noble with CCTP V1 to Ethereum, then CCTP V2 from Ethereum to Injective, then IBC to Neutron. It needs signers on Ethereum and Injective, and must be done **before 2026-12-01**.
+- **[Path A: Osmosis](#path-a-osmosis-skipgo)** (recommended): one transaction on Noble, 1:1 swap through an Osmosis transmuter pool, delivered to Neutron over IBC. No CCTP, so the shrinking CCTP V1 burn limits do not affect it. It still has to finish before 2027-01-12.
+- **[Path B: CCTP V1 through Ethereum](#path-b-cctp-v1-through-ethereum)** (fallback): burn on Noble with CCTP V1 to Ethereum, then CCTP V2 from Ethereum to Injective, then IBC to Neutron. It needs signers on Ethereum and Injective. Its hard deadline is also 2027-01-12, but do it **as early as possible**: the burn limits are shrinking toward zero, and after 2026-12-01 the Ethereum route is at risk.
 
 Values were checked on-chain on 2026-11-06. Check them again before converting.
 
@@ -26,7 +26,7 @@ From [Circle's announcement](https://www.circle.com/blog/circle-is-discontinuing
 |---|---|
 | 2026-10-13 | New USDC minting on Noble stopped. |
 | 2026-10-31 | CCTP V1 burn limits started shrinking toward zero. |
-| 2026-12-01 | CCTP V1 deprecation completes. CCTP exits from Noble may be limited to destinations that still support CCTP V1. |
+| 2026-12-01 | After this date, CCTP exits from Noble may be limited to destination chains that still support CCTP V1 burns. The announcement does not name them. |
 | 2027-01-12 | USDC on Noble and its CCTP routes are fully paused. Circle snapshots remaining balances. |
 | 2027-01-13 | Circle's manual redemption process opens for addresses in the snapshot. |
 
@@ -121,7 +121,9 @@ Take the Ethereum and Injective contract addresses from [Circle's CCTP docs](htt
 ### Limits
 
 - **Per-message burn limit on Noble:** 500,000 USDC on 2026-11-06 (`GET <noble-rest>/circle/cctp/v1/per_message_burn_limits`). It keeps shrinking toward zero, so the full amount needs several `MsgDepositForBurn` messages. They can all go in one Noble tx, since the limit is per message.
-- **Deadline:** CCTP V1 deprecation completes on 2026-12-01. Steps 1 to 3 must be finished before then. After that, the V1 mint on Ethereum may no longer be available. With the Neutron upgrade on 2026-11-23/24, this leaves about one week.
+- **Deadline:** the hard deadline is 2027-01-12, when Circle pauses Noble's CCTP routes. Do steps 1 to 3 as early as possible, for two reasons:
+  - The burn limit has no published schedule, so the route can become impractical well before the pause.
+  - After 2026-12-01 the Ethereum route is at risk: Circle may limit CCTP exits from Noble to destination chains that still support CCTP V1 burns, and has not said whether Ethereum stays one of them. With the Neutron upgrade on 2026-11-23/24, this leaves about one week before that date.
 - Check `burning_and_minting_paused` on Noble, and the V2 per-message limit on Ethereum, before starting.
 
 ### Wallets
@@ -142,7 +144,7 @@ The USDC stays in the Noble multisig. Circle's manual redemption, from 2027-01-1
 | | Path A: Osmosis | Path B: CCTP V1 via Ethereum |
 |---|---|---|
 | Signatures | Noble only (Osmosis only on failure) | Noble, Ethereum, Injective |
-| Deadline | 2027-01-12 (Noble pause) | 2026-12-01 (CCTP V1) |
+| Deadline | 2027-01-12 (Noble pause) | 2027-01-12 (Noble pause); Ethereum route at risk after 2026-12-01 |
 | Limit | Pool 3497's USDC.inj liquidity | Noble per-message burn limit (shrinking) |
 | Rate | 1:1, no swap fee | 1:1, plus Ethereum gas and CCTP fees |
 | Time | Minutes per chunk, once signed | Two attestations, plus Ethereum finality for the V2 burn (about 15–20 min) |
