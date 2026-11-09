@@ -56,7 +56,7 @@ Other details:
 
 - **Noble and Neutron multisig signers:** Stake&Relax, Polkachu, 01node, Newt Node and Solva.
 - **Repayment plan:** [docs/repayment.md](https://github.com/disperze/usdc-migration/blob/master/docs/repayment.md) (option 1, redemption contract; on Neutron, a transmuter pool)
-- **Conversion to USDC (Injective):** [docs/conversion.md](https://github.com/disperze/usdc-migration/blob/master/docs/conversion.md). The main route goes through Osmosis and needs no CCTP; the fallback is CCTP V1 through Ethereum, before 2026-12-01.
+- **Conversion to USDC (Injective):** [docs/conversion.md](https://github.com/disperze/usdc-migration/blob/master/docs/conversion.md). The main route goes through Osmosis and needs no CCTP; the fallback is CCTP V1 through Ethereum, which is at risk after 2026-12-01 and ends with the pause on 2027-01-12.
 
 ## Timeline if this passes
 
